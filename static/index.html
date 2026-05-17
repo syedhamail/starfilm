@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>STARFILM</title>
+
+<!-- FAVICON -->
+<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="icon" href="/static/favicon-32x32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --black:    #000000;
+  --dark:     #0d0c0a;
+  --surface:  #111008;
+  --card:     #161410;
+  --gold:     #c9a87c;
+  --gold-lt:  #dfc49c;
+  --gold-dk:  #a07d52;
+  --gold-dim: rgba(201,168,124,0.12);
+  --gold-bdr: rgba(201,168,124,0.22);
+  --text:     #f0ead8;
+  --muted:    #7a6e5a;
+  --radius:   4px;
+}
+
+/* ── GRAIN OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.35;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--black);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 80px;
+  position: relative;
+}
+
+/* ── AMBIENT GLOW ── */
+.ambient {
+  position: fixed; pointer-events: none; z-index: 0;
+  border-radius: 50%; filter: blur(120px); opacity: 0.07;
+}
+.ambient-1 { width: 600px; height: 600px; background: var(--gold); top: -200px; right: -100px; }
+.ambient-2 { width: 400px; height: 400px; background: var(--gold-dk); bottom: -100px; left: -100px; }
+
+/* ── HEADER ── */
+header {
+  position: relative; z-index: 10;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 86px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.logo-wrap {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 10px;
+}
+
+/* Film camera SVG icon matching the logo style */
+.logo-icon {
+  width: 42px; height: 42px;
+  opacity: 0.9;
+}
+
+.brand-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.divider-line {
+  width: 60px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  margin: 16px auto;
+}
+
+.tagline {
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── CARD ── */
+.card {
+  position: relative; z-index: 10;
+  max-width: 700px;
+  margin: 0 auto 20px;
+  background: var(--card);
+  border: 1px solid var(--gold-bdr);
+  border-radius: var(--radius);
+  padding: 32px 32px;
+}
+
+/* corner decorations */
+.card::before, .card::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  border-color: var(--gold-dk);
+  border-style: solid;
+}
+.card::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+.card::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+.card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gold-dk);
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gold-bdr);
+}
+
+label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-dk);
+  margin-bottom: 8px;
+}
+
+input[type="text"], select {
+  width: 100%;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--gold-bdr);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 300;
+  padding: 12px 14px;
+  transition: border-color .25s, box-shadow .25s;
+  outline: none;
+  letter-spacing: 0.03em;
+}
+input[type="text"]::placeholder { color: var(--muted); font-weight: 300; }
+input[type="text"]:focus, select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,168,124,0.08);
+}
+select option { background: #1a1710; }
+
+.field { margin-bottom: 22px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:520px){ .row { grid-template-columns: 1fr; } }
+
+/* ── GENERATE BUTTON ── */
+.btn-generate {
+  width: 100%;
+  margin-top: 8px;
+  padding: 15px 24px;
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  color: var(--gold);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: color .3s;
+}
+.btn-generate::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--gold);
+  transform: translateX(-101%);
+  transition: transform .35s cubic-bezier(.4,0,.2,1);
+}
+.btn-generate:hover:not(:disabled) { color: var(--black); }
+.btn-generate:hover:not(:disabled)::before { transform: translateX(0); }
+.btn-generate span { position: relative; z-index: 1; }
+.btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── PROGRESS ── */
+#progress-section { display: none; }
+
+.prog-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: var(--gold-lt);
+  margin-bottom: 14px;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+}
+
+.progress-track {
+  background: rgba(201,168,124,0.1);
+  border-radius: 99px;
+  height: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold-lt));
+  border-radius: 99px;
+  transition: width .5s ease;
+  width: 0%;
+}
+.prog-pct {
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  text-align: right;
+  margin-bottom: 24px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.steps { display: flex; flex-direction: column; gap: 12px; }
+.step-item {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 400;
+  transition: color .3s;
+}
+.step-item.active { color: var(--gold-lt); }
+.step-item.done   { color: var(--gold-dk); }
+.step-item.error  { color: #c97c7c; }
+
+.step-num {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  display: grid; place-items: center;
+  font-size: 0.58rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background .3s, border-color .3s;
+}
+.step-item.active .step-num {
+  background: var(--gold-dim);
+  border-color: var(--gold-lt);
+  animation: ring-pulse 1.5s infinite;
+}
+.step-item.done .step-num {
+  background: var(--gold-dim);
+  border-color: var(--gold-dk);
+}
+.step-item.done .step-num::after { content: '✓'; font-size: 0.6rem; }
+
+@keyframes ring-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(201,168,124,0); }
+  50%      { box-shadow: 0 0 0 4px rgba(201,168,124,0.15); }
+}
+
+/* step-num shows number when not done */
+.step-item:not(.done) .step-num-inner { display: block; }
+.step-item.done .step-num-inner { display: none; }
+
+/* ── RESULT ── */
+#result-section { display: none; }
+
+.result-video {
+  width: 100%;
+  border-radius: var(--radius);
+  background: #000;
+  aspect-ratio: 9/16;
+  max-height: 460px;
+  object-fit: contain;
+  border: 1px solid var(--gold-bdr);
+}
+
+.tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid var(--gold-bdr); }
+.tab-btn {
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+  transition: color .2s, border-color .2s;
+}
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+
+.tab-pane { display: none; padding: 16px 0 4px; }
+.tab-pane.active { display: block; }
+
+.meta-block {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--gold-bdr);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.meta-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold-dk);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.meta-text {
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-weight: 300;
+}
+.copy-btn {
+  margin-top: 10px;
+  padding: 5px 14px;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--gold-bdr);
+  border-radius: var(--radius);
+  color: var(--gold-dk);
+  cursor: pointer;
+  transition: border-color .2s, color .2s, background .2s;
+}
+.copy-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+
+/* ── ACTION BUTTONS ── */
+.btn-download {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 14px;
+  background: var(--gold);
+  color: var(--black);
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .2s, opacity .2s;
+}
+.btn-download:hover { background: var(--gold-lt); }
+
+.btn-reset {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(201,168,124,0.12);
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.btn-reset:hover { color: var(--text); border-color: var(--gold-bdr); }
+
+/* ── FOOTER ── */
+footer {
+  position: relative; z-index: 10;
+  text-align: center;
+  margin-top: 48px;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+footer span { color: var(--gold-dk); }
+
+@media(max-width:600px){
+  .card { padding: 24px 18px; }
+  header { padding: 40px 16px 28px; }
+}
+
+/* ── TOAST NOTIFICATIONS ── */
+#toast-container {
+  position: fixed;
+  top: 28px;
+  right: 28px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: all;
+  min-width: 300px;
+  max-width: 380px;
+  background: #0d0c0a;
+  border: 1px solid var(--gold-bdr);
+  border-radius: 4px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,168,124,0.06);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.45s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease;
+  position: relative;
+}
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+.toast.hide {
+  transform: translateX(120%);
+  opacity: 0;
+}
+
+/* top accent line */
+.toast-accent {
+  height: 2px;
+  width: 100%;
+}
+.toast-success .toast-accent { background: linear-gradient(90deg, var(--gold-dk), var(--gold-lt)); }
+.toast-info    .toast-accent { background: linear-gradient(90deg, #7c9ec9, #9cbddf); }
+.toast-error   .toast-accent { background: linear-gradient(90deg, #8b3a3a, #c97c7c); }
+
+.toast-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px 14px 16px;
+}
+
+.toast-icon {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  margin-top: 1px;
+}
+.toast-success .toast-icon { background: rgba(201,168,124,0.12); color: var(--gold-lt); border: 1px solid var(--gold-bdr); }
+.toast-info    .toast-icon { background: rgba(124,158,201,0.12); color: #9cbddf; border: 1px solid rgba(124,158,201,0.25); }
+.toast-error   .toast-icon { background: rgba(201,124,124,0.12); color: #c97c7c; border: 1px solid rgba(201,124,124,0.25); }
+
+.toast-content { flex: 1; min-width: 0; }
+
+.toast-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin-bottom: 3px;
+}
+.toast-success .toast-title { color: var(--gold-lt); }
+.toast-info    .toast-title { color: #9cbddf; }
+.toast-error   .toast-title { color: #c97c7c; }
+
+.toast-msg {
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  font-weight: 300;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color .2s;
+  margin-top: -1px;
+}
+.toast-close:hover { color: var(--text); }
+
+/* progress bar at bottom */
+.toast-progress {
+  height: 2px;
+  background: rgba(201,168,124,0.08);
+  position: relative;
+  overflow: hidden;
+}
+.toast-progress-bar {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%;
+  transition: width linear;
+}
+.toast-success .toast-progress-bar { background: var(--gold-dk); }
+.toast-info    .toast-progress-bar { background: #7c9ec9; }
+.toast-error   .toast-progress-bar { background: #8b3a3a; }
+
+@media(max-width:480px){
+  #toast-container { top: 16px; right: 16px; left: 16px; }
+  .toast { min-width: 0; max-width: 100%; }
+}
+
+
+/* ── HISTORY ── */
+#history-section { display: none; }
+
+.history-nav {
+  position: relative; z-index: 10;
+  max-width: 700px;
+  margin: 0 auto 20px;
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--gold-bdr);
+}
+.hnav-btn {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
+  transition: color .2s, border-color .2s;
+}
+.hnav-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.hnav-btn:hover:not(.active) { color: var(--text); }
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.history-item {
+  background: var(--card);
+  border: 1px solid var(--gold-bdr);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color .2s, transform .2s;
+  position: relative;
+}
+.history-item:hover {
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+.history-thumb {
+  width: 100%;
+  aspect-ratio: 9/16;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+.history-thumb video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+}
+.history-thumb-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+  display: flex;
+  align-items: flex-end;
+  padding: 10px;
+}
+.history-date {
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  color: var(--gold-dk);
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+}
+
+.history-info {
+  padding: 12px 12px 10px;
+}
+.history-topic {
+  font-size: 0.72rem;
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.history-actions {
+  display: flex;
+  gap: 6px;
+}
+.hbtn {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+}
+.hbtn-download {
+  background: var(--gold-dim);
+  border: 1px solid var(--gold-bdr);
+  color: var(--gold);
+}
+.hbtn-download:hover { background: var(--gold); color: var(--black); }
+.hbtn-delete {
+  background: transparent;
+  border: 1px solid rgba(201,124,124,0.2);
+  color: rgba(201,124,124,0.6);
+}
+.hbtn-delete:hover { background: rgba(201,124,124,0.1); color: #c97c7c; border-color: rgba(201,124,124,0.5); }
+
+.history-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+}
+.history-empty-icon {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+.history-empty-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+}
+
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<!-- User bar -->
+<div id="user-bar" style="position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);border-bottom:1px solid rgba(201,168,124,0.12);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;">
+  <div style="font-family:'Cormorant Garamond',serif;font-size:0.9rem;font-weight:700;letter-spacing:0.18em;color:#c9a87c;text-transform:uppercase;">StarFilm</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="user-name" style="font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:#7a6e5a;font-family:'Montserrat',sans-serif;font-weight:500;"></span>
+    <a href="/dashboard" style="background:transparent;border:1px solid rgba(201,168,124,0.28);border-radius:4px;color:#c9a87c;font-family:'Montserrat',sans-serif;font-size:0.58rem;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;padding:5px 12px;text-decoration:none;" onmouseover="this.style.borderColor='rgba(201,168,124,0.7)'" onmouseout="this.style.borderColor='rgba(201,168,124,0.28)'">Dashboard</a>
+  </div>
+</div>
+
+<div class="ambient ambient-1"></div>
+<div class="ambient ambient-2"></div>
+
+<header>
+  <div class="logo-wrap">
+    <!-- Film camera icon matching StarFilm logo style -->
+    <svg class="logo-icon" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- reels -->
+      <circle cx="28" cy="22" r="11" stroke="#c9a87c" stroke-width="3"/>
+      <circle cx="28" cy="22" r="4"  stroke="#c9a87c" stroke-width="2.5"/>
+      <circle cx="52" cy="18" r="8"  stroke="#c9a87c" stroke-width="3"/>
+      <circle cx="52" cy="18" r="3"  stroke="#c9a87c" stroke-width="2"/>
+      <!-- camera body -->
+      <rect x="18" y="32" width="38" height="22" rx="3" stroke="#c9a87c" stroke-width="3"/>
+      <!-- lens -->
+      <rect x="8"  y="36" width="10" height="6" rx="2" stroke="#c9a87c" stroke-width="2.5"/>
+      <!-- viewfinder -->
+      <path d="M56 36 L66 32 L66 46 L56 42 Z" stroke="#c9a87c" stroke-width="2.5" stroke-linejoin="round"/>
+      <!-- body lines -->
+      <line x1="30" y1="36" x2="30" y2="50" stroke="#c9a87c" stroke-width="1.5"/>
+      <line x1="24" y1="40" x2="28" y2="46" stroke="#c9a87c" stroke-width="1.5"/>
+      <!-- tripod -->
+      <line x1="37" y1="54" x2="28" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="37" y1="54" x2="46" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="37" y1="54" x2="37" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <div class="brand-name">StarFilm</div>
+  </div>
+  <div class="divider-line"></div>
+  <div class="tagline">AI-Powered Shorts Generator</div>
+</header>
+
+<!-- ── FORM ── -->
+<div class="card" id="form-card">
+  <div class="card-title">New Production</div>
+
+  <div class="field">
+    <label>Topic / Story Idea</label>
+    <input type="text" id="topic" placeholder="e.g. A Little Girl Saved by an AI in the Last Second" />
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>Niche</label>
+      <input type="text" id="niche" placeholder="e.g. AI Emotional Story Shorts" />
+    </div>
+    <div class="field">
+      <label>Format</label>
+      <select id="video_type">
+        <option value="Shorts">YouTube Shorts</option>
+        <option value="Reel">Instagram Reel</option>
+        <option value="TikTok">TikTok</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Voice Language</label>
+      <select id="voice_select">
+        <option value="hi-IN-SwaraNeural">🇮🇳 Hindi - Female (Natural)</option>
+        <option value="hi-IN-MadhurNeural">🇮🇳 Hindi - Male (Natural)</option>
+        <option value="en-US-AvaMultilingualNeural">🇺🇸 English - Female (Natural)</option>
+        <option value="en-US-AndrewMultilingualNeural">🇺🇸 English - Male (Natural)</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn-generate" id="gen-btn" onclick="startGeneration()">
+    <span>Generate Video</span>
+  </button>
+</div>
+
+<!-- ── PROGRESS ── -->
+<div class="card" id="progress-section">
+  <div class="card-title">Production in Progress — Ready in Under 15 Minutes</div>
+  <div class="prog-label" id="current-step">Initializing...</div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+  <div class="prog-pct" id="progress-pct">0%</div>
+  <div class="steps">
+    <div class="step-item" id="s1">
+      <div class="step-num"><span class="step-num-inner">01</span></div>
+      Script Writing
+    </div>
+    <div class="step-item" id="s2">
+      <div class="step-num"><span class="step-num-inner">02</span></div>
+      Voice Generation
+    </div>
+    <div class="step-item" id="s3">
+      <div class="step-num"><span class="step-num-inner">03</span></div>
+      Image Generation
+    </div>
+    <div class="step-item" id="s4">
+      <div class="step-num"><span class="step-num-inner">04</span></div>
+      Video Compilation
+    </div>
+    <div class="step-item" id="s5">
+      <div class="step-num"><span class="step-num-inner">05</span></div>
+      Final Output Ready
+    </div>
+  </div>
+  <div style="margin-top: 25px; text-align: center;">
+      <button onclick="cancelGeneration(jobId)" 
+              style="background: transparent; border: 1px solid #c97c7c; color: #c97c7c; padding: 10px 20px; border-radius: 4px; font-size: 0.7rem; letter-spacing: 0.5px; cursor: pointer;">
+          ✕ Cancel Generation
+      </button>
+  </div>
+</div>
+
+<!-- ── RESULT ── -->
+<div class="card" id="result-section">
+  <div class="card-title">Production Complete</div>
+  <video class="result-video" id="result-video" controls playsinline></video>
+
+  <!-- Script tabs -->
+  <div style="margin-top:24px">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(event,'hook')">Hook</button>
+      <button class="tab-btn" onclick="switchTab(event,'body')">Body</button>
+      <button class="tab-btn" onclick="switchTab(event,'cta')">CTA</button>
+      <button class="tab-btn" onclick="switchTab(event,'full')">Full Script</button>
+    </div>
+    <div class="tab-pane active" id="tab-hook">
+      <div class="meta-block">
+        <div class="meta-label">Opening Hook</div>
+        <div class="meta-text" id="script-hook">—</div>
+        <button class="copy-btn" onclick="copyText('script-hook',this)">Copy</button>
+      </div>
+    </div>
+    <div class="tab-pane" id="tab-body">
+      <div class="meta-block">
+        <div class="meta-label">Body</div>
+        <div class="meta-text" id="script-body">—</div>
+        <button class="copy-btn" onclick="copyText('script-body',this)">Copy</button>
+      </div>
+    </div>
+    <div class="tab-pane" id="tab-cta">
+      <div class="meta-block">
+        <div class="meta-label">Call to Action</div>
+        <div class="meta-text" id="script-cta">—</div>
+        <button class="copy-btn" onclick="copyText('script-cta',this)">Copy</button>
+      </div>
+    </div>
+    <div class="tab-pane" id="tab-full">
+      <div class="meta-block">
+        <div class="meta-label">Full Script</div>
+        <div class="meta-text" id="script-full">—</div>
+        <button class="copy-btn" onclick="copyText('script-full',this)">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- YouTube Metadata -->
+  <div class="meta-block">
+    <div class="meta-label">YouTube Title</div>
+    <div class="meta-text" id="meta-title">—</div>
+    <button class="copy-btn" onclick="copyText('meta-title',this)">Copy</button>
+  </div>
+  <div class="meta-block">
+    <div class="meta-label">Description</div>
+    <div class="meta-text" id="meta-desc">—</div>
+    <button class="copy-btn" onclick="copyText('meta-desc',this)">Copy</button>
+  </div>
+  <div class="meta-block">
+    <div class="meta-label">Tags</div>
+    <div class="meta-text" id="meta-tags">—</div>
+    <button class="copy-btn" onclick="copyText('meta-tags',this)">Copy</button>
+  </div>
+
+  <a class="btn-download" id="download-link" href="#" download>Download final_shorts.mp4</a>
+  <button class="btn-reset" onclick="resetApp()">Start New Production</button>
+</div>
+
+<footer>
+  <div class="divider-line" style="margin-bottom:16px"></div>
+  <span>StarFilm</span> &nbsp;·&nbsp; AI Shorts Production
+</footer>
+
+<script>
+
+// ── TOAST SYSTEM ──────────────────────────────────────────
+const toastIcons = {
+  success: '✦',
+  info:    '◈',
+  error:   '◇',
+};
+const toastTitles = {
+  success: 'Success',
+  info:    'In Progress',
+  error:   'Error',
+};
+
+function showToast(type, message, duration = 4500) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+
+  toast.innerHTML = `
+    <div class="toast-accent"></div>
+    <div class="toast-body">
+      <div class="toast-icon">${toastIcons[type]}</div>
+      <div class="toast-content">
+        <div class="toast-title">${toastTitles[type]}</div>
+        <div class="toast-msg">${message}</div>
+      </div>
+      <button class="toast-close" onclick="dismissToast(this.closest('.toast'))">✕</button>
+    </div>
+    <div class="toast-progress">
+      <div class="toast-progress-bar" style="width:100%"></div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { toast.classList.add('show'); });
+  });
+
+  // animate progress bar
+  const bar = toast.querySelector('.toast-progress-bar');
+  bar.style.transition = `width ${duration}ms linear`;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => { bar.style.width = '0%'; });
+  });
+
+  const timer = setTimeout(() => dismissToast(toast), duration);
+  toast._timer = timer;
+}
+
+function dismissToast(toast) {
+  if (!toast || toast._dismissed) return;
+  toast._dismissed = true;
+  clearTimeout(toast._timer);
+  toast.classList.add('hide');
+  toast.classList.remove('show');
+  setTimeout(() => toast.remove(), 500);
+}
+
+// ── STEP LABEL → friendly name mapping ────────────────────
+const stepLabels = {
+  'script':  'Script',
+  'voice':   'Voice',
+  'image':   'Images',
+  'compile': 'Video',
+  'ffmpeg':  'Video',
+  'video':   'Video',
+  'ready':   'Final Output',
+  'done':    'Final Output',
+};
+
+function friendlyStep(stepText) {
+  const t = stepText.toLowerCase();
+  for (const [key, label] of Object.entries(stepLabels))
+    if (t.includes(key)) return label;
+  return 'Processing';
+}
+
+let jobId = null;
+let pollTimer = null;
+
+const stepMap = [
+  { id: 's1', keys: ['script','groq','writing'] },
+  { id: 's2', keys: ['voice'] },
+  { id: 's3', keys: ['image'] },
+  { id: 's4', keys: ['compile','ffmpeg','video'] },
+  { id: 's5', keys: ['ready','done'] },
+];
+
+function matchStep(text) {
+  const t = text.toLowerCase();
+  for (let i = stepMap.length - 1; i >= 0; i--)
+    if (stepMap[i].keys.some(k => t.includes(k))) return i;
+  return -1;
+}
+
+async function startGeneration() {
+    const topic = document.getElementById('topic').value.trim();
+    if (!topic) {
+        showToast('error', 'Please enter a topic to begin production.');
+        return;
+    }
+
+    const voice = document.getElementById('voice_select').value;
+
+    document.getElementById('gen-btn').disabled = true;
+    document.getElementById('form-card').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('result-section').style.display = 'none';
+    resetSteps();
+    showToast('info', 'Starting production...', 4000);
+
+    let resp, data;
+    try {
+        resp = await fetch('/api/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                topic:      topic,
+                niche:      document.getElementById('niche').value || 'AI Emotional Story Shorts',
+                video_type: document.getElementById('video_type').value,
+                voice:      voice
+            }),
+        });
+        data = await resp.json();
+
+        if (data.error) {
+            showToast('error', data.error || 'Failed to start generation');
+            document.getElementById('form-card').style.display = 'block';
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('gen-btn').disabled = false;
+            return;
+        }
+
+        // SUCCESS
+        jobId = data.job_id;
+        currentJobId = jobId;
+        localStorage.setItem('currentJobId', jobId);
+
+        pollTimer = setInterval(pollStatus, 2000);
+        pollStatus();
+
+    } catch(e) {
+        console.error(e);
+        showToast('error', 'Connection error. Please try again.');
+        document.getElementById('form-card').style.display = 'block';
+        document.getElementById('progress-section').style.display = 'none';
+        document.getElementById('gen-btn').disabled = false;
+    }
+}
+
+let lastStepIdx = -1;
+const stepToastShown = {};
+
+async function pollStatus() {
+    if (!jobId) return;
+
+    let resp, data;
+    try {
+        resp = await fetch(`/api/status/${jobId}`);
+        if (resp.status === 404) {
+            clearInterval(pollTimer);
+            resetApp();
+            return;
+        }
+        data = await resp.json();
+    } catch(e) {
+        console.error(e);
+        return;
+    }
+
+    const stepText = data.step || '...';
+    document.getElementById('current-step').textContent = stepText;
+    const pct = data.progress || 0;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct + '%';
+
+    const idx = matchStep(stepText);
+
+    if (idx > lastStepIdx && !stepToastShown[idx]) {
+        stepToastShown[idx] = true;
+        lastStepIdx = idx;
+        const stepNames = ['Script', 'Voice', 'Images', 'Video', 'Output'];
+        if (idx >= 0 && idx < stepNames.length - 1) {
+            showToast('info', `${stepNames[idx]} generation in progress...`, 3500);
+        }
+    }
+
+    stepMap.forEach((s, i) => {
+        document.getElementById(s.id).className =
+          'step-item' + (i < idx ? ' done' : i === idx ? ' active' : '');
+    });
+
+    if (data.status === 'done') {
+        clearInterval(pollTimer);
+        showToast('success', 'Your video is ready. Download it below.', 6000);
+        showResult(data);
+    } else if (data.status === 'canceled') {
+        clearInterval(pollTimer);
+        showToast('info', 'Generation was canceled.');
+        resetApp();
+    } else if (data.status === 'error') {
+        clearInterval(pollTimer);
+        showToast('error', `Error in ${friendlyStep(stepText)}`);
+        resetApp();
+    }
+}
+
+function showResult(data) {
+  document.getElementById('progress-section').style.display = 'none';
+  document.getElementById('result-section').style.display = 'block';
+
+  const vid = document.getElementById('result-video');
+  vid.src = data.video_url + '?t=' + Date.now();
+
+  if (data.script) {
+    setText('script-hook', data.script.hook || '—');
+    setText('script-body', data.script.body || '—');
+    setText('script-cta',  data.script.cta  || '—');
+    setText('script-full', data.script.full_script || '—');
+  }
+  if (data.metadata) {
+    setText('meta-title', data.metadata.title       || '—');
+    setText('meta-desc',  data.metadata.description || '—');
+    setText('meta-tags',  data.metadata.tags        || '—');
+  }
+  document.getElementById('download-link').href = `/api/download/${jobId}`;
+}
+
+function setText(id, val) { document.getElementById(id).textContent = val; }
+
+function resetSteps() {
+  stepMap.forEach(s => { document.getElementById(s.id).className = 'step-item'; });
+  document.getElementById('current-step').style.color = '';
+}
+
+function resetApp() {
+  clearInterval(pollTimer);
+  jobId = null;
+  localStorage.removeItem('currentJobId');
+  lastStepIdx = -1;
+  Object.keys(stepToastShown).forEach(k => delete stepToastShown[k]);
+  document.getElementById('result-section').style.display   = 'none';
+  document.getElementById('progress-section').style.display = 'none';
+  document.getElementById('form-card').style.display        = 'block';
+  document.getElementById('gen-btn').disabled = false;
+  document.getElementById('topic').value = '';
+  resetSteps();
+  showToast('info', 'Ready for a new production.', 3000);
+}
+
+function switchTab(e, name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+function copyText(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+    btn.textContent = 'Copied';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+async function doLogout() {
+  await fetch('/api/logout', { method: 'POST' });
+  showToast('info', 'Signed out', 'See you next time.');
+  setTimeout(() => { window.location.href = '/login'; }, 1000);
+}
+
+// Load current user name on page load
+async function loadUser() {
+  try {
+    const resp = await fetch('/api/me');
+    if (resp.status === 401) { window.location.href = '/login'; return; }
+    const data = await resp.json();
+    document.getElementById('user-name').textContent = data.name || data.email;
+  } catch(e) {
+    window.location.href = '/login';
+  }
+}
+
+loadUser();
+
+// Page load hone par running job check
+window.addEventListener('load', function() {
+    const savedJobId = localStorage.getItem('currentJobId');
+    if (savedJobId) {
+        jobId = savedJobId;
+        document.getElementById('form-card').style.display = 'none';
+        document.getElementById('progress-section').style.display = 'block';
+        pollTimer = setInterval(pollStatus, 2000);
+        pollStatus();
+    }
+});
+
+let currentJobId = null;
+
+// Cancel Function
+async function cancelGeneration(jobId) {
+
+    if (!jobId) {
+        alert("No active job found");
+        return;
+    }
+
+    try {
+
+        const response = await fetch(`/api/cancel-job/${jobId}`, {
+            method: "POST",
+            credentials: "include"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Cancel failed");
+        }
+
+        console.log("Generation canceled");
+
+        clearInterval(pollTimer);
+        resetApp();
+        showToast('info', 'Generation canceled successfully');
+
+    } catch (err) {
+
+        console.error("Cancel Error:", err);
+        alert("Failed to cancel. Check terminal for details.");
+    }
+}
+
+function showCustomConfirm(message, onConfirm) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.85); z-index: 1000;
+        display: flex; align-items: center; justify-content: center;
+    `;
+
+    modal.innerHTML = `
+        <div style="background:#161410; border:1px solid #c9a87c33; border-radius:8px; padding:28px 32px; max-width:380px; text-align:center;">
+            <div style="font-size:1.1rem; color:#f0ead8; margin-bottom:20px;">${message}</div>
+            <div style="display:flex; gap:12px; justify-content:center;">
+                <button onclick="this.closest('.modal').remove()" 
+                        style="padding:10px 24px; background:transparent; border:1px solid #c97c7c; color:#c97c7c; border-radius:4px; cursor:pointer;">
+                    Cancel
+                </button>
+                <button onclick="this.closest('.modal').remove(); (${onConfirm.toString()})()" 
+                        style="padding:10px 28px; background:#c9a87c; color:#000; border:none; border-radius:4px; font-weight:600; cursor:pointer;">
+                    Yes, Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    modal.className = 'modal';
+    document.body.appendChild(modal);
+}
+</script>
+</body>
+</html>

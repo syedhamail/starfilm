@@ -1,0 +1,9 @@
+fastapi==0.111.0
+uvicorn==0.29.0
+python-dotenv==1.0.1
+requests==2.31.0
+aiofiles==23.2.1
+python-multipart==0.0.9
+groq==1.2.0
+passlib[bcrypt]
+itsdangerous

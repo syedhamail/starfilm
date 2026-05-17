@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Dashboard - STARFILM</title>
+
+<!-- FAVICON -->
+<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="icon" href="/static/favicon-32x32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+<style>
+    body { background:#000; color:#f0ead8; font-family:'Montserrat',sans-serif; margin:0; }
+    .container { max-width: 1100px; margin: auto; padding: 20px; }
+    .header { display:flex; justify-content:space-between; align-items:center; padding:20px 0; border-bottom:1px solid #c9a87c33; }
+    .card { background:#161410; border:1px solid #c9a87c22; border-radius:8px; padding:20px; margin:15px 0; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:12px; text-align:left; border-bottom:1px solid #c9a87c22; }
+    button { padding:6px 12px; margin:2px; cursor:pointer; }
+    .delete { background:#c97c7c; color:white; border:none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>StarFilm Admin Panel</h1>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <div id="stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;"></div>
+
+    <h2>Users</h2>
+    <input type="text" id="search" placeholder="Search user..." onkeyup="loadUsers()" style="width:100%;padding:10px;margin:10px 0;">
+    <div id="users-list"></div>
+
+    <h2>All Videos</h2>
+    <div id="videos-list"></div>
+</div>
+
+<script>
+// ===== STRONG ADMIN AUTH CHECK =====
+async function checkAdminAuth() {
+    try {
+        const res = await fetch('/api/admin/stats', {
+            credentials: 'include'   // Important for cookie
+        });
+
+        if (res.status === 401 || res.status === 403) {
+            // Force redirect to login
+            window.location.replace('/admin?error=unauthorized');
+            return false;
+        }
+        return true;
+    } catch(e) {
+        console.error(e);
+        window.location.replace('/admin');
+        return false;
+    }
+}
+
+// Load Stats
+async function loadStats() {
+    const res = await fetch('/api/admin/stats');
+    const data = await res.json();
+    document.getElementById('stats').innerHTML = `
+        <div class="card"><b>Total Users:</b> ${data.total_users}</div>
+        <div class="card"><b>Total Videos:</b> ${data.total_videos}</div>
+        <div class="card"><b>Today's Videos:</b> ${data.today_videos}</div>
+    `;
+}
+
+// Load Users
+async function loadUsers() {
+    const search = document.getElementById('search').value || '';
+    const res = await fetch(`/api/admin/users?search=${search}`);
+    const data = await res.json();
+    
+    let html = `<table><tr><th>Email</th><th>Name</th><th>Status</th><th>Action</th></tr>`;
+    data.users.forEach(u => {
+        html += `<tr>
+            <td>${u.email}</td>
+            <td>${u.name || ''}</td>
+            <td>${u.is_verified ? '✅ Verified' : '⏳ Pending'}</td>
+            <td><button class="delete" onclick="deleteUser('${u.email}')">Delete</button></td>
+        </tr>`;
+    });
+    html += `</table>`;
+    document.getElementById('users-list').innerHTML = html;
+}
+
+// Load Videos
+async function loadVideos() {
+    const res = await fetch('/api/admin/videos');
+    const data = await res.json();
+    
+    let html = `<table><tr><th>Topic</th><th>User</th><th>Date & Time (UTC)</th><th>Action</th></tr>`;
+    
+    data.videos.forEach(v => {
+        let dateStr = '—';
+        if (v.created_at) {
+            const date = new Date(v.created_at);
+            dateStr = date.toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric' 
+            }) + ", " + 
+            date.toLocaleTimeString('en-US', { 
+                hour: 'numeric', minute: '2-digit', hour12: true 
+            }) + " (UTC)";
+        }
+
+        html += `<tr>
+            <td>${v.topic}</td>
+            <td>${v.email}</td>
+            <td>${dateStr}</td>
+            <td><button class="delete" onclick="deleteVideo('${v.job_id}')">Delete</button></td>
+        </tr>`;
+    });
+    
+    html += `</table>`;
+    document.getElementById('videos-list').innerHTML = html;
+}
+
+async function deleteUser(email) {
+    if(confirm("Delete this user and all their videos?")) {
+        await fetch(`/api/admin/user/${email}`, {method:'DELETE'});
+        loadUsers();
+    }
+}
+
+async function deleteVideo(job_id) {
+    if(confirm("Delete this video?")) {
+        await fetch(`/api/admin/video/${job_id}`, {method:'DELETE'});
+        loadVideos();
+    }
+}
+
+function logout() {
+    document.cookie = "admin_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    window.location.replace('/admin');   // replace instead of href
+}
+
+// Page Load - Strong Check
+document.addEventListener('DOMContentLoaded', async () => {
+    const isAuth = await checkAdminAuth();
+    if (isAuth) {
+        loadStats();
+        loadUsers();
+        loadVideos();
+    }
+});
+</script>
+</body>
+</html>
