@@ -268,7 +268,7 @@ async def signup(payload: dict, response: Response, request: Request):
         return JSONResponse({"error": "Email already registered"}, status_code=400)
 
     conn.execute(
-        "INSERT INTO users (email, name, password_hash, is_verified) VALUES (?, ?, ?, 0)",
+        "INSERT INTO users (email, name, password_hash, is_verified) VALUES (?, ?, ?, 1)",
         (email, name, hash_password(password))
     )
 
