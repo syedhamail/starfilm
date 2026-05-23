@@ -1109,7 +1109,7 @@ def generate_images(topic: str, niche: str, job_dir: str, job_id: str = "") -> l
     niche_key = niche.lower().replace(" ", "_").replace("-", "_")
 
     if niche_key in CATEGORY_PROMPTS:
-        raw_prompts = CATEGORY_PROMPTS[niche_key][:10]
+        raw_prompts = CATEGORY_PROMPTS[niche_key][:5]
     else:
         raw_prompts = [
             f"{base}, emotional close-up portrait",
@@ -1126,7 +1126,7 @@ def generate_images(topic: str, niche: str, job_dir: str, job_id: str = "") -> l
 
     image_paths = []
 
-    print("🎨 Generating 10 images (Fast Mode)...")
+    print("🎨 Generating 5 images (Fast Mode)...")
 
     for i, prompt in enumerate(raw_prompts, 1):
 
@@ -1155,17 +1155,17 @@ def generate_images(topic: str, niche: str, job_dir: str, job_id: str = "") -> l
 
                 image_paths.append(out_path)
 
-                print(f"  ✅ Image {i}/10 saved")
+                print(f"  ✅ Image {i}/5 saved")
 
                 break
 
             except:
                 time.sleep(1.5)
 
-    while len(image_paths) < 10 and image_paths:
+    while len(image_paths) < 5 and image_paths:
         image_paths.append(image_paths[-1])
 
-    return image_paths[:10]
+    return image_paths[:5]
 
 
 def compile_video(image_paths: list, voice_path: str, output_path: str, job_id: str = ""):
@@ -1236,8 +1236,8 @@ def compile_video(image_paths: list, voice_path: str, output_path: str, job_id: 
         "-filter_complex", filter_complex,
         "-map", "[vfinal]", "-map", "[aout]",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "24",
+        "-preset", "ultrafast",
+        "-crf", "28"
         "-c:a", "aac",
         "-b:a", "128k",
         "-shortest",
