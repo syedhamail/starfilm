@@ -34,6 +34,11 @@ os.environ['CURL_CA_BUNDLE'] = ''
 
 app = FastAPI(title="Shorts Maker")
 
+@app.on_event("startup")
+async def startup():
+    init_db()
+    create_default_admin()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
