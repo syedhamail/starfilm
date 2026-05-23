@@ -475,8 +475,8 @@ async function doSignup() {
   try {
     const data = await post('/api/signup', { name, email, password: pass });
     if (data.success) {
-      showMsg('signup-msg', 'success', 'Account created! Please check your email to verify your account before signing in.');
-      showToast('gold', 'Account Created', 'Check your inbox for a verification email.');
+      showMsg('signup-msg', 'success', 'Account created! You can now sign in.');
+      showToast('gold', 'Account Created', 'You can now sign in to your account.');
       setLoading(btn, false, 'Create Account');
       // Clear fields
       document.getElementById('signup-name').value  = '';
