@@ -278,25 +278,10 @@ async def signup(payload: dict, response: Response, request: Request):
     conn.commit()
     conn.close()
 
-    # Send verification email
-    base_url = str(request.base_url).rstrip("/")
-    verify_url = f"{base_url}/verify-email?token={v_token}"
-    try:
-        send_email(
-            to_email=email,
-            subject="Verify your StarFilm account",
-            html_body=email_template(
-                title="Verify Your Email",
-                body_html=f"Hi <strong style='color:#c9a87c'>{name}</strong>,<br><br>Welcome to StarFilm! Please verify your email address to activate your account.",
-                btn_text="Verify Email Address",
-                btn_url=verify_url,
-            )
-        )
-    except Exception as e:
-        print(f"  Email error: {e}")
-        return JSONResponse({"error": "Account created but email could not be sent. Check GMAIL settings."}, status_code=500)
+    # Email verification
+    print(f"  User {email} registered successfully (no email verification)")
 
-    return {"success": True, "name": name, "verify": True}
+    return {"success": True, "name": name, "verify": False}
 
 @app.post("/api/login")
 async def login(payload: dict, response: Response):
