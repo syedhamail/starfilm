@@ -1237,8 +1237,8 @@ def compile_video(image_paths: list, voice_path: str, output_path: str, job_id: 
         "-map", "[vfinal]", "-map", "[aout]",
         "-c:v", "libx264",
         "-preset", "ultrafast",
-        "-crf", "28"
-        "-c:a", "aac",
+        "-crf", "28",
+        "-c:a", "mp3",
         "-b:a", "128k",
         "-shortest",
         "-pix_fmt", "yuv420p",
