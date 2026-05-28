@@ -242,32 +242,41 @@ def rendi_run_ffmpeg(command: str, inputs: list) -> str:
 
 
 def upload_to_rendi(file_path: str, filename: str) -> str:
-    """Upload file to Rendi storage"""
+    """Upload file to Rendi (Correct Endpoint)"""
+    url = f"{RENDI_BASE_URL}/files"   # ← Correct Endpoint
+
     headers = {
         "Authorization": f"Bearer {RENDI_API_KEY}",
-        "Content-Type": "multipart/form-data"
     }
 
     try:
         with open(file_path, "rb") as f:
-            files = {"file": (filename, f, "audio/mpeg")}
+            files = {
+                "file": (filename, f, "audio/mpeg")   # mp3 ke liye
+            }
             
-            res = requests.post(
-                f"{RENDI_BASE_URL}/files/upload",   # ← Yeh line important hai
-                headers={"Authorization": f"Bearer {RENDI_API_KEY}"},
-                files=files,
-                timeout=60
-            )
-        
-        print(f"Rendi Upload Status: {res.status_code}")
-        
-        if not res.ok:
-            print(f"Rendi Upload Error: {res.text}")
-            res.raise_for_status()
+            res = requests.post(url, headers=headers, files=files, timeout=90)
+            
+            print(f"Rendi Upload Status: {res.status_code}")
+            
+            if not res.ok:
+                print(f"Rendi Upload Error Response: {res.text}")
+                res.raise_for_status()
 
-        data = res.json()
-        return data.get("url") or data.get("file_url") or data.get("download_url")
-        
+            data = res.json()
+            
+            # Possible response keys
+            voice_url = (data.get("url") or 
+                        data.get("file_url") or 
+                        data.get("download_url") or 
+                        data.get("storage_url"))
+            
+            if not voice_url:
+                raise ValueError("No URL returned from Rendi")
+                
+            print(f"  Voice uploaded successfully: {voice_url[:80]}...")
+            return voice_url
+
     except Exception as e:
         print(f"Rendi Upload Failed: {e}")
         raise
