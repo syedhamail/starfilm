@@ -1025,10 +1025,16 @@ def generate_metadata(topic):
 # ═══════════════════════════════════════════════════════════════
 
 def create_default_admin():
-    admin_email = "hamailsyed139@gmail.com"
+    admin_email = os.getenv("ADMIN_EMAIL", "hamailsyed139@gmail.com")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+
+    if not admin_password:
+        print("⚠️ Warning: ADMIN_PASSWORD environment variable not set!")
+        return
+
     if not db_get_admin(admin_email):
-        db_create_admin(admin_email, "Super Admin", hash_password("hamailsyed139"))
-        print("Default Admin Created")
+        db_create_admin(admin_email, "Super Admin", hash_password(admin_password))
+        print("✅ Default Admin Created")
 
 def get_admin_user(request: Request):
     token = request.cookies.get("admin_session")
