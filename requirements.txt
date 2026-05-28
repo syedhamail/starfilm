@@ -9,3 +9,4 @@ passlib[bcrypt]
 itsdangerous
 edge-tts
 supabase
+cloudinary
