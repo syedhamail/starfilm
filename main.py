@@ -622,27 +622,15 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
         )
         if is_canceled(job_id): return
 
-        # Voice duration check karo
-        import subprocess
-        result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", 
-            "format=duration", "-of", "csv=p=0", voice_path],
-            capture_output=True, text=True
-        )
+        # === VOICE DURATION ESTIMATION (ffprobe removed) ===
+        voice_duration = 45.0  # Default safe value
         try:
-            duration = float(result.stdout.strip())
-            print(f"  Voice duration: {duration:.1f} sec")
-            if duration < 30:
-                print("  Voice too short! Regenerating with longer script...")
-                # Script dobara banao
-                script["voice_text"] = script["voice_text"] + " " + script.get("body", "") + " " + script.get("cta", "")
-                await asyncio.to_thread(
-                    generate_voice,
-                    script["voice_text"],
-                    voice_path, voice
-                )
-        except:
-            print("  Could not check voice duration")
+            file_size_mb = os.path.getsize(voice_path) / (1024 * 1024)
+            # Rough estimation: ~45 seconds per MB for MP3
+            voice_duration = max(35.0, min(65.0, file_size_mb * 48))
+            print(f"  Estimated voice duration: {voice_duration:.1f} sec")
+        except Exception as e:
+            print(f"  Could not estimate voice duration: {e}")
 
         # ── 3. IMAGES ──────────────────────────────────────────
         update_job(job_id, "Generating images...", 45)
@@ -651,22 +639,18 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
         )
         if is_canceled(job_id): return
 
-        # ── 4. RENDI FFmpeg VIDEO ──────────────────────────────
+        # ── 4. UPLOAD VOICE TO RENDI ───────────────────────────
         update_job(job_id, "Uploading voice to cloud...", 60)
-        time.sleep(2)  # small buffer
-
-        # Voice Cloudinary par upload karo
-        import cloudinary.uploader
-        voice_result = cloudinary.uploader.upload(
-            voice_path,
-            resource_type="video",
-            folder="starfilm/voices",
+        voice_url = await asyncio.to_thread(
+            upload_to_rendi, voice_path, f"voice_{job_id}.mp3"
         )
-        voice_url = voice_result["secure_url"]
 
-        # Images ki Pollinations URLs directly use karo
+        # ── 5. GENERATE IMAGE URLs ─────────────────────────────
+        update_job(job_id, "Preparing images...", 65)
+
         niche_key = niche.lower().replace(" ", "_").replace("-", "_")
         base = f"Ultra photorealistic vertical 9:16 image about {topic}, cinematic lighting, detailed, 8k"
+        
         raw_prompts = CATEGORY_PROMPTS.get(niche_key, [
             f"{base}, emotional close-up portrait",
             f"{base}, intense dramatic moment",
@@ -689,38 +673,24 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
 
         if is_canceled(job_id): return
 
-        # ── 5. FFMPEG COMMAND BANAO ────────────────────────────
+        # ── 6. RENDI FFmpeg VIDEO ──────────────────────────────
         update_job(job_id, "Compiling video with Rendi...", 75)
 
         n = len(image_urls)
 
-        # Voice duration pehle check karo
-        import subprocess
-        try:
-            result = subprocess.run(
-                ["ffprobe", "-v", "quiet", "-show_entries",
-                "format=duration", "-of", "csv=p=0", voice_path],
-                capture_output=True, text=True
-            )
-            voice_duration = float(result.stdout.strip())
-            print(f"  Voice duration: {voice_duration:.1f} sec")
-        except:
-            voice_duration = 40.0
+        # Calculate duration per image
+        img_dur = (voice_duration + 3.0) / n
+        img_dur = max(3.0, min(img_dur, 8.0))   # Safe range
 
-        # Har image ko equal time do based on voice duration
-        img_dur = (voice_duration + 2.0) / n  # 2 sec extra buffer
-        img_dur = max(3.0, min(img_dur, 8.0))  # min 3sec, max 8sec per image
-        print(f"  Image duration: {img_dur:.2f} sec each")
+        print(f"  Using {n} images | Each image: {img_dur:.2f} sec | Total ~{voice_duration:.1f} sec")
 
-       # print(f"  Target Video Duration: {target_video_duration} sec | Each image: {img_dur:.2f} sec")
-
-        # Inputs
+        # Prepare inputs for Rendi
         rendi_inputs = []
         for i, url in enumerate(image_urls):
-            rendi_inputs.append({"url": url, "name": f"image{i+1}_jpg"})
-        rendi_inputs.append({"url": voice_url, "name": "voice_mp3"})
+            rendi_inputs.append({"url": url, "name": f"image{i+1}.jpg"})
+        rendi_inputs.append({"url": voice_url, "name": "voice.mp3"})
 
-        # FFmpeg command build karo
+        # Build FFmpeg Command
         input_args = ""
         for i in range(n):
             input_args += f"-loop 1 -t {img_dur} -i {{{{in_image{i+1}_jpg}}}} "
@@ -733,13 +703,13 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
                 f"pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v{i}]"
             )
 
-        prev  = "v0"
+        prev = "v0"
         xfade = ""
         for i in range(1, n):
             out_label = f"v0{i}" if i < n-1 else "vout"
-            offset    = (i * img_dur) - 0.8
-            xfade    += f"[{prev}][v{i}]xfade=transition=fade:duration=0.7:offset={offset}[{out_label}];"
-            prev      = out_label
+            offset = (i * img_dur) - 0.8
+            xfade += f"[{prev}][v{i}]xfade=transition=fade:duration=0.7:offset={offset}[{out_label}];"
+            prev = out_label
 
         filter_complex = (
             ";".join(filters) + ";" +
@@ -754,20 +724,19 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
             f"-c:v libx264 -preset ultrafast -crf 26 "
             f"-c:a aac -b:a 128k "
             f"-shortest -pix_fmt yuv420p "
-            f"-pix_fmt yuv420p {{{{out_output_mp4}}}}"
+            f"{{{{out_output_mp4}}}}"
         )
 
-        # Rendi par run karo
+        # Run on Rendi
         video_url = await asyncio.to_thread(
             rendi_run_ffmpeg, ffmpeg_command, rendi_inputs
         )
 
         if is_canceled(job_id): return
 
-        # ── 6. METADATA ────────────────────────────────────────
+        # ── 7. METADATA & SAVE ─────────────────────────────────
         meta = generate_metadata(topic)
 
-        # ── SUCCESS ────────────────────────────────────────────
         jobs[job_id]["status"]    = "done"
         jobs[job_id]["step"]      = "Video ready!"
         jobs[job_id]["progress"]  = 100
@@ -784,7 +753,7 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
             except Exception as e:
                 print(f"History save error: {e}")
 
-        # Temp files clean karo
+        # Cleanup
         import shutil
         shutil.rmtree(str(job_dir), ignore_errors=True)
 
