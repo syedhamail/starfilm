@@ -31,6 +31,15 @@ import re
 
 load_dotenv()
 
+import cloudinary
+import cloudinary.uploader
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+)
+
 # SSL Fix
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 os.environ['CURL_CA_BUNDLE'] = ''
@@ -661,9 +670,16 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
 
         # ── 4. UPLOAD VOICE ────────────────────────────────────
         update_job(job_id, "Uploading voice to cloud...", 60)
-        voice_url = await asyncio.to_thread(
-            upload_to_rendi, voice_path, f"voice_{job_id}.mp3"
-        )
+        def upload_voice_cloudinary(voice_path):
+            result = cloudinary.uploader.upload(
+                voice_path,
+                resource_type="video",
+                folder="starfilm/voices",
+            )
+            return result["secure_url"]
+
+        voice_url = await asyncio.to_thread(upload_voice_cloudinary, voice_path)
+        print(f"  Voice uploaded: {voice_url}")
 
         # ── 5. IMAGE URLs ──────────────────────────────────────
         update_job(job_id, "Preparing cinematic images...", 65)
