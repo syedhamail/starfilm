@@ -9,8 +9,9 @@
   "routes": [
     {
       "src": "/google94a976b56e3b917b.html",
+      "status": 200,
       "headers": { "Content-Type": "text/plain" },
-      "dest": "data:text/plain;charset=utf-8,google-site-verification:%20google94a976b56e3b917b.html"
+      "dest": "main.py"
     },
     {
       "src": "/(.*)",
