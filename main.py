@@ -1,7 +1,8 @@
 """
-YouTube Shorts Maker - Main Backend
-=====================================
-Topic → Script → Voice → Images → Video → Final Video
+StarFilm - YouTube Shorts Maker
+================================
+Vercel + Supabase + Rendi FFmpeg API
+Topic → Script → Voice → Images → Rendi Video → Done!
 """
 
 import os
@@ -10,21 +11,23 @@ import time
 import json
 import uuid
 import hashlib
-import sqlite3
 import asyncio
 import secrets
 import smtplib
 import requests
-import subprocess
+import tempfile
 from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
-from fastapi import FastAPI, BackgroundTasks, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
+from supabase import create_client, Client
+from fastapi.responses import StreamingResponse
+import re
 
 load_dotenv()
 
@@ -32,12 +35,16 @@ load_dotenv()
 os.environ['REQUESTS_CA_BUNDLE'] = ''
 os.environ['CURL_CA_BUNDLE'] = ''
 
-app = FastAPI(title="Shorts Maker")
+# ─── Supabase Setup ────────────────────────────────────────────
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-@app.on_event("startup")
-async def startup():
-    init_db()
-    create_default_admin()
+# ─── Rendi Setup ───────────────────────────────────────────────
+RENDI_API_KEY = os.getenv("RENDI_API_KEY")
+RENDI_BASE_URL = "https://api.rendi.dev/v1"
+
+app = FastAPI(title="StarFilm")
 
 app.add_middleware(
     CORSMiddleware,
@@ -49,114 +56,215 @@ app.add_middleware(
 # ─── Directories ───────────────────────────────────────────────
 BASE_DIR   = Path(__file__).parent
 STATIC_DIR = BASE_DIR / "static"
-OUTPUT_DIR = BASE_DIR / "output"
-OUTPUT_DIR.mkdir(exist_ok=True)
-STATIC_DIR.mkdir(exist_ok=True)
+TMP_DIR    = Path("/tmp/starfilm")
+
+STATIC_DIR.mkdir(exist_ok=True, parents=True)
+TMP_DIR.mkdir(exist_ok=True, parents=True)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
 
-
-# ─── Job Status Store (in-memory) ──────────────────────────────
+# ─── Job Store (in-memory) ─────────────────────────────────────
 jobs: dict = {}
-
-# ─── Cancel Store ──────────────────────────────
 cancel_flags: dict = {}
 
-# ─── Database Setup (SQLite — persistent) ──────────────────────
-DB_PATH = BASE_DIR / "users.db"
 
-def get_db():
-    """Get a DB connection — call this inside each function."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+# ═══════════════════════════════════════════════════════════════
+#  SUPABASE DATABASE HELPERS
+# ═══════════════════════════════════════════════════════════════
 
-def init_db():
-    """Create tables if they don't exist."""
-    conn = get_db()
-    # Users table — is_verified added
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            email         TEXT PRIMARY KEY,
-            name          TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
-            is_verified   INTEGER DEFAULT 0,
-            is_blocked    INTEGER DEFAULT 0,
-            created_at    TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    # Sessions
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            token      TEXT PRIMARY KEY,
-            email      TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    # Email verification tokens
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS verify_tokens (
-            token      TEXT PRIMARY KEY,
-            email      TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    # Password reset tokens
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS reset_tokens (
-            token      TEXT PRIMARY KEY,
-            email      TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    # === NEW TABLES -- Admins ===
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS admins (
-            email         TEXT PRIMARY KEY,
-            name          TEXT NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at    TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    # Saved videos history
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS videos (
-            job_id     TEXT PRIMARY KEY,
-            email      TEXT NOT NULL,
-            topic      TEXT NOT NULL,
-            video_url  TEXT NOT NULL,
-            title      TEXT,
-            tags       TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    # Active Jobs (for persistence across pages)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS active_jobs (
-            job_id       TEXT PRIMARY KEY,
-            email        TEXT NOT NULL,
-            topic        TEXT NOT NULL,
-            status       TEXT DEFAULT 'running',
-            progress     INTEGER DEFAULT 0,
-            step         TEXT,
-            created_at   TEXT DEFAULT (datetime('now')),
-            completed_at TEXT
-        )
-    """)
+def db_get_user(email: str):
+    res = supabase.table("users").select("*").eq("email", email).execute()
+    return res.data[0] if res.data else None
 
-    conn.commit()
-    conn.close()
-    print(f"  Database ready: {DB_PATH}")
+def db_create_user(email: str, name: str, password_hash: str):
+    supabase.table("users").insert({
+        "email": email, "name": name,
+        "password_hash": password_hash,
+        "is_verified": 1, "is_blocked": 0,
+    }).execute()
+
+def db_verify_user(email: str):
+    supabase.table("users").update({"is_verified": 1}).eq("email", email).execute()
+
+def db_update_password(email: str, password_hash: str):
+    supabase.table("users").update({"password_hash": password_hash}).eq("email", email).execute()
+
+def db_get_session(token: str):
+    res = supabase.table("sessions").select("email").eq("token", token).execute()
+    return res.data[0] if res.data else None
+
+def db_create_session(token: str, email: str):
+    supabase.table("sessions").insert({"token": token, "email": email}).execute()
+
+def db_delete_session(token: str):
+    supabase.table("sessions").delete().eq("token", token).execute()
+
+def db_create_verify_token(token: str, email: str):
+    supabase.table("verify_tokens").insert({"token": token, "email": email}).execute()
+
+def db_get_verify_token(token: str):
+    res = supabase.table("verify_tokens").select("*").eq("token", token).execute()
+    return res.data[0] if res.data else None
+
+def db_delete_verify_token(token: str):
+    supabase.table("verify_tokens").delete().eq("token", token).execute()
+
+def db_create_reset_token(token: str, email: str):
+    supabase.table("reset_tokens").delete().eq("email", email).execute()
+    supabase.table("reset_tokens").insert({"token": token, "email": email}).execute()
+
+def db_get_reset_token(token: str):
+    res = supabase.table("reset_tokens").select("*").eq("token", token).execute()
+    return res.data[0] if res.data else None
+
+def db_delete_reset_token(token: str):
+    supabase.table("reset_tokens").delete().eq("token", token).execute()
+
+def db_get_admin(email: str):
+    res = supabase.table("admins").select("*").eq("email", email).execute()
+    return res.data[0] if res.data else None
+
+def db_create_admin(email: str, name: str, password_hash: str):
+    supabase.table("admins").insert({
+        "email": email, "name": name, "password_hash": password_hash,
+    }).execute()
+
+def db_save_video(job_id, email, topic, video_url, title, tags):
+    supabase.table("videos").insert({
+        "job_id": job_id, "email": email, "topic": topic,
+        "video_url": video_url, "title": title, "tags": tags,
+    }).execute()
+
+def db_get_videos(email: str):
+    res = supabase.table("videos").select("*").eq("email", email).order("created_at", desc=True).execute()
+    return res.data or []
+
+def db_delete_video(job_id: str, email: str):
+    supabase.table("videos").delete().eq("job_id", job_id).eq("email", email).execute()
+
+def db_get_all_users():
+    res = supabase.table("users").select("*").order("created_at", desc=True).execute()
+    return res.data or []
+
+def db_get_all_videos():
+    res = supabase.table("videos").select("*").order("created_at", desc=True).execute()
+    return res.data or []
+
+def db_delete_user(email: str):
+    supabase.table("sessions").delete().eq("email", email).execute()
+    supabase.table("videos").delete().eq("email", email).execute()
+    supabase.table("users").delete().eq("email", email).execute()
+
+def db_admin_delete_video(job_id: str):
+    supabase.table("videos").delete().eq("job_id", job_id).execute()
+
+def db_get_stats():
+    total_users  = len(supabase.table("users").select("email").execute().data or [])
+    total_videos = len(supabase.table("videos").select("job_id").execute().data or [])
+    return total_users, total_videos
+
+
+# ─── Startup ───────────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    create_default_admin()
+
+
+# ═══════════════════════════════════════════════════════════════
+#  RENDI FFmpeg HELPERS
+# ═══════════════════════════════════════════════════════════════
+
+def rendi_run_ffmpeg(command: str, inputs: list) -> str:
+    """
+    Rendi API ko FFmpeg command bhejo.
+    Returns: output file URL
+    """
+    headers = {
+        "x-api-key": RENDI_API_KEY,
+        "Content-Type": "application/json",
+    }
+
+    input_files = {}
+    for item in inputs:
+        key = f"in_{item['name'].replace('.', '_').replace('-', '_')}"
+        input_files[key] = item["url"]
+
+    payload = {
+        "ffmpeg_command": command,
+        "input_files": input_files,
+        "output_files": {"out_output_mp4": "out_output.mp4"}
+    }
+
+    res = requests.post(
+        f"{RENDI_BASE_URL}/run-ffmpeg-command",
+        headers=headers,
+        json=payload,
+        timeout=30
+    )
+    res.raise_for_status()
+    job = res.json()
+    job_id = job["command_id"]
+
+    print(f"  Rendi job submitted: {job_id}")
+
+    # Poll for completion
+    for attempt in range(200):  # Increased timeout (10+ minutes)
+        time.sleep(3)
+        status_res = requests.get(
+            f"{RENDI_BASE_URL}/commands/{job_id}",
+            headers=headers,
+            timeout=15
+        )
+        status_res.raise_for_status()
+        status_data = status_res.json()
+
+        state = status_data.get("status", "").upper()
+        print(f"  Rendi status: {state} (attempt {attempt+1})")
+
+        if state in ("COMPLETED", "SUCCESS"):
+            output_files = status_data.get("output_files", {})
+            if output_files:
+                first = list(output_files.values())[0]
+                if isinstance(first, dict):
+                    url = first.get("url") or first.get("storage_url") or first.get("download_url")
+                else:
+                    url = first
+                if url:
+                    print(f"  Video ready: {url}")
+                    return url
+            raise RuntimeError("Rendi: Output URL not found even after success")
+
+        if state in ("FAILED", "ERROR", "CANCELLED"):
+            error_msg = status_data.get("error", "Unknown error")
+            raise RuntimeError(f"Rendi FFmpeg failed: {error_msg}")
+
+    raise RuntimeError("Rendi: Job timeout after 10 minutes")
+
+
+def upload_to_rendi(file_path: str, filename: str) -> str:
+    """Local file ko Rendi storage mein upload karo."""
+    headers = {"Authorization": f"Bearer {RENDI_API_KEY}"}
+
+    with open(file_path, "rb") as f:
+        res = requests.post(
+            f"{RENDI_BASE_URL}/files",
+            headers=headers,
+            files={"file": (filename, f)},
+            timeout=60
+        )
+    if not res.ok:
+        print(f"Rendi Error Response: {res.text}")
+        res.raise_for_status()
+    data = res.json()
+    return data["url"]
 
 
 # ─── Email Helper ────────────────────────────────────────────────
 def send_email(to_email: str, subject: str, html_body: str):
-    """Send email via Gmail SMTP."""
     gmail_user = os.getenv("GMAIL_USER")
     gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
     if not gmail_user or not gmail_pass:
-        raise ValueError("GMAIL_USER or GMAIL_APP_PASSWORD not set in .env")
+        raise ValueError("GMAIL credentials not set")
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -171,46 +279,42 @@ def send_email(to_email: str, subject: str, html_body: str):
 
 
 def email_template(title: str, body_html: str, btn_text: str, btn_url: str) -> str:
-    """StarFilm branded email template."""
     return f"""
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#000000;font-family:'Helvetica Neue',Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#000;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#000;padding:40px 0;">
     <tr><td align="center">
-      <table width="480" cellpadding="0" cellspacing="0" style="background:#0e0d0b;border:1px solid rgba(201,168,124,0.25);border-radius:4px;overflow:hidden;">
-        <!-- Gold top bar -->
+      <table width="480" cellpadding="0" cellspacing="0"
+        style="background:#0e0d0b;border:1px solid rgba(201,168,124,0.25);border-radius:4px;overflow:hidden;">
         <tr><td style="background:linear-gradient(90deg,#a07d52,#dfc49c);height:2px;"></td></tr>
-        <!-- Header -->
         <tr><td style="padding:32px 36px 20px;text-align:center;border-bottom:1px solid rgba(201,168,124,0.15);">
           <div style="font-size:22px;font-weight:700;letter-spacing:0.22em;color:#c9a87c;text-transform:uppercase;">StarFilm</div>
           <div style="font-size:10px;letter-spacing:0.2em;color:#7a6e5a;margin-top:6px;text-transform:uppercase;">AI Shorts Production</div>
         </td></tr>
-        <!-- Body -->
         <tr><td style="padding:32px 36px;">
-          <h2 style="color:#dfc49c;font-size:16px;font-weight:600;letter-spacing:0.08em;margin:0 0 16px;">{title}</h2>
-          <div style="color:#a09070;font-size:13px;line-height:1.7;font-weight:300;">{body_html}</div>
-          <!-- Button -->
+          <h2 style="color:#dfc49c;font-size:16px;font-weight:600;margin:0 0 16px;">{title}</h2>
+          <div style="color:#a09070;font-size:13px;line-height:1.7;">{body_html}</div>
           <table cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
-            <tr><td style="background:transparent;border:1px solid #c9a87c;border-radius:4px;">
-              <a href="{btn_url}" style="display:inline-block;padding:12px 28px;color:#c9a87c;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;text-decoration:none;">{btn_text}</a>
+            <tr><td style="border:1px solid #c9a87c;border-radius:4px;">
+              <a href="{btn_url}"
+                style="display:inline-block;padding:12px 28px;color:#c9a87c;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;text-decoration:none;">{btn_text}</a>
             </td></tr>
           </table>
-          <p style="color:#4a4035;font-size:11px;margin-top:20px;line-height:1.6;">
+          <p style="color:#4a4035;font-size:11px;margin-top:20px;">
             If you did not request this, please ignore this email.<br>
             This link expires in <strong style="color:#7a6e5a;">24 hours</strong>.
           </p>
         </td></tr>
-        <!-- Footer -->
         <tr><td style="padding:16px 36px;border-top:1px solid rgba(201,168,124,0.1);text-align:center;">
-          <div style="font-size:10px;color:#4a4035;letter-spacing:0.12em;">StarFilm &nbsp;·&nbsp; AI Shorts Production</div>
+          <div style="font-size:10px;color:#4a4035;">StarFilm · AI Shorts Production</div>
         </td></tr>
       </table>
     </td></tr>
   </table>
-</body>
-</html>"""
+</body></html>"""
+
 
 # ─── Auth Helpers ───────────────────────────────────────────────
 def hash_password(password: str) -> str:
@@ -218,20 +322,16 @@ def hash_password(password: str) -> str:
 
 def create_session(email: str) -> str:
     token = str(uuid.uuid4())
-    conn  = get_db()
-    conn.execute("INSERT INTO sessions (token, email) VALUES (?, ?)", (token, email))
-    conn.commit()
-    conn.close()
+    db_create_session(token, email)
     return token
 
 def get_session_user(request: Request):
     token = request.cookies.get("sf_session")
     if not token:
         return None
-    conn = get_db()
-    row  = conn.execute("SELECT email FROM sessions WHERE token = ?", (token,)).fetchone()
-    conn.close()
+    row = db_get_session(token)
     return row["email"] if row else None
+
 
 # ═══════════════════════════════════════════════════════════════
 #  ROUTES
@@ -239,11 +339,9 @@ def get_session_user(request: Request):
 
 @app.get("/")
 def root(request: Request):
-    # If logged in → app, else → login page
     user = get_session_user(request)
     if user:
-        index = STATIC_DIR / "index.html"
-        return FileResponse(str(index))
+        return FileResponse(str(STATIC_DIR / "index.html"))
     return RedirectResponse(url="/login")
 
 @app.get("/login")
@@ -261,27 +359,13 @@ async def signup(payload: dict, response: Response, request: Request):
     if len(password) < 6:
         return JSONResponse({"error": "Password must be at least 6 characters"}, status_code=400)
 
-    conn = get_db()
-    existing = conn.execute("SELECT email FROM users WHERE email = ?", (email,)).fetchone()
+    existing = db_get_user(email)
     if existing:
-        conn.close()
         return JSONResponse({"error": "Email already registered"}, status_code=400)
 
-    conn.execute(
-        "INSERT INTO users (email, name, password_hash, is_verified) VALUES (?, ?, ?, 1)",
-        (email, name, hash_password(password))
-    )
-
-    # Create verification token
-    v_token = secrets.token_urlsafe(32)
-    conn.execute("INSERT INTO verify_tokens (token, email) VALUES (?, ?)", (v_token, email))
-    conn.commit()
-    conn.close()
-
-    # Email verification
-    print(f"  User {email} registered successfully (no email verification)")
-
+    db_create_user(email, name, hash_password(password))
     return {"success": True, "name": name, "verify": False}
+
 
 @app.post("/api/login")
 async def login(payload: dict, response: Response):
@@ -291,90 +375,53 @@ async def login(payload: dict, response: Response):
     if not email or not password:
         return JSONResponse({"error": "Email and password are required"}, status_code=400)
 
-    conn = get_db()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    conn.close()
-
+    user = db_get_user(email)
     if not user or user["password_hash"] != hash_password(password):
         return JSONResponse({"error": "Invalid email or password"}, status_code=401)
-
-    if not user["is_verified"]:
-        return JSONResponse({"error": "Please verify your email first. Check your inbox."}, status_code=403)
 
     token = create_session(email)
     response.set_cookie(key="sf_session", value=token, httponly=True, max_age=86400*7)
     return {"success": True, "name": user["name"]}
 
+
 @app.post("/api/logout")
 async def logout(request: Request, response: Response):
     token = request.cookies.get("sf_session")
     if token:
-        conn = get_db()
-        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-        conn.commit()
-        conn.close()
+        db_delete_session(token)
     response.delete_cookie("sf_session")
     return {"success": True}
+
 
 @app.get("/api/me")
 def me(request: Request):
     email = get_session_user(request)
     if not email:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
-    conn = get_db()
-    user = conn.execute("SELECT name FROM users WHERE email = ?", (email,)).fetchone()
-    conn.close()
+    user = db_get_user(email)
     return {"email": email, "name": user["name"] if user else "User"}
 
 
 @app.get("/dashboard")
 def dashboard_page(request: Request):
-    user = get_session_user(request)
-    if not user:
+    if not get_session_user(request):
         return RedirectResponse(url="/login")
     return FileResponse(str(STATIC_DIR / "dashboard.html"))
+
 
 @app.get("/api/stats")
 def get_stats(request: Request):
     email = get_session_user(request)
     if not email:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    
-    conn = get_db()
-    
-    # User Info
-    user = conn.execute("""
-        SELECT name, email, created_at 
-        FROM users WHERE email = ?
-    """, (email,)).fetchone()
-    
-    # Total Videos
-    total_videos = conn.execute("""
-        SELECT COUNT(*) as c FROM videos WHERE email = ?
-    """, (email,)).fetchone()
-    
-    # Recent Videos (Full History - No Limit)
-    recent = conn.execute("""
-        SELECT 
-            job_id,
-            topic,
-            title,
-            video_url,
-            '/output/' || job_id || '/image1.jpg' as thumbnail_url,
-            created_at
-        FROM videos 
-        WHERE email = ? 
-        ORDER BY created_at DESC
-    """, (email,)).fetchall()
-
-    conn.close()
-    
+    user   = db_get_user(email)
+    videos = db_get_videos(email)
     return {
         "name":         user["name"] if user else "",
         "email":        email,
-        "member_since": user["created_at"][:10] if user and user["created_at"] else "",
-        "total_videos": total_videos["c"] if total_videos else 0,
-        "recent":       [dict(r) for r in recent]
+        "member_since": (user.get("created_at") or "")[:10],
+        "total_videos": len(videos),
+        "recent":       videos,
     }
 
 
@@ -388,33 +435,12 @@ async def change_password(payload: dict, request: Request):
     if not current or not new_pass:
         return JSONResponse({"error": "All fields are required"}, status_code=400)
     if len(new_pass) < 6:
-        return JSONResponse({"error": "New password must be at least 6 characters"}, status_code=400)
-    conn = get_db()
-    user = conn.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()
+        return JSONResponse({"error": "Password must be at least 6 characters"}, status_code=400)
+    user = db_get_user(email)
     if not user or user["password_hash"] != hash_password(current):
-        conn.close()
         return JSONResponse({"error": "Current password is incorrect"}, status_code=400)
-    conn.execute("UPDATE users SET password_hash = ? WHERE email = ?", (hash_password(new_pass), email))
-    conn.commit()
-    conn.close()
+    db_update_password(email, hash_password(new_pass))
     return {"success": True}
-
-
-@app.get("/verify-email")
-async def verify_email(token: str):
-    """User clicks link in email → verify account."""
-    conn = get_db()
-    row  = conn.execute("SELECT * FROM verify_tokens WHERE token = ?", (token,)).fetchone()
-
-    if not row:
-        conn.close()
-        return RedirectResponse(url="/login?msg=invalid_token")
-
-    conn.execute("UPDATE users SET is_verified = 1 WHERE email = ?", (row["email"],))
-    conn.execute("DELETE FROM verify_tokens WHERE token = ?", (token,))
-    conn.commit()
-    conn.close()
-    return RedirectResponse(url="/login?msg=verified")
 
 
 @app.post("/api/forgot-password")
@@ -422,50 +448,27 @@ async def forgot_password(payload: dict, request: Request):
     email = payload.get("email", "").strip().lower()
     if not email:
         return JSONResponse({"error": "Email is required"}, status_code=400)
-
-    conn  = get_db()
-    user  = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-
+    user = db_get_user(email)
     if not user:
-        conn.close()
-        # Don't reveal if email exists
         return {"success": True}
-
-    # Delete old reset tokens for this email
-    conn.execute("DELETE FROM reset_tokens WHERE email = ?", (email,))
-
     r_token = secrets.token_urlsafe(32)
-    conn.execute("INSERT INTO reset_tokens (token, email) VALUES (?, ?)", (r_token, email))
-    conn.commit()
-    conn.close()
-
-    base_url   = str(request.base_url).rstrip("/")
-    reset_url  = f"{base_url}/reset-password?token={r_token}"
-
+    db_create_reset_token(r_token, email)
+    base_url  = str(request.base_url).rstrip("/")
+    reset_url = f"{base_url}/reset-password?token={r_token}"
     try:
-        send_email(
-            to_email=email,
-            subject="Reset your StarFilm password",
-            html_body=email_template(
-                title="Reset Your Password",
-                body_html=f"Hi <strong style='color:#c9a87c'>{user['name']}</strong>,<br><br>We received a request to reset your StarFilm password. Click the button below to set a new password.",
-                btn_text="Reset Password",
-                btn_url=reset_url,
-            )
-        )
+        send_email(email, "Reset your StarFilm password",
+            email_template("Reset Your Password",
+                f"Hi <strong style='color:#c9a87c'>{user['name']}</strong>,<br><br>Click below to reset your password.",
+                "Reset Password", reset_url))
     except Exception as e:
-        print(f"  Email error: {e}")
-        return JSONResponse({"error": "Could not send email. Check GMAIL settings."}, status_code=500)
-
+        print(f"Email error: {e}")
+        return JSONResponse({"error": "Could not send email."}, status_code=500)
     return {"success": True}
 
 
 @app.get("/reset-password")
 async def reset_password_page(token: str):
-    """Validate token then show reset password page."""
-    conn = get_db()
-    row  = conn.execute("SELECT * FROM reset_tokens WHERE token = ?", (token,)).fetchone()
-    conn.close()
+    row = db_get_reset_token(token)
     if not row:
         return RedirectResponse(url="/login?msg=invalid_token")
     return FileResponse(str(STATIC_DIR / "reset-password.html"))
@@ -473,29 +476,17 @@ async def reset_password_page(token: str):
 
 @app.post("/api/reset-password")
 async def do_reset_password(payload: dict):
-    token       = payload.get("token", "").strip()
+    token        = payload.get("token", "").strip()
     new_password = payload.get("password", "").strip()
-
     if not token or not new_password:
         return JSONResponse({"error": "All fields are required"}, status_code=400)
     if len(new_password) < 6:
         return JSONResponse({"error": "Password must be at least 6 characters"}, status_code=400)
-
-    conn = get_db()
-    row  = conn.execute("SELECT * FROM reset_tokens WHERE token = ?", (token,)).fetchone()
-
+    row = db_get_reset_token(token)
     if not row:
-        conn.close()
         return JSONResponse({"error": "Invalid or expired reset link"}, status_code=400)
-
-    conn.execute(
-        "UPDATE users SET password_hash = ? WHERE email = ?",
-        (hash_password(new_password), row["email"])
-    )
-    conn.execute("DELETE FROM reset_tokens WHERE token = ?", (token,))
-    conn.commit()
-    conn.close()
-
+    db_update_password(row["email"], hash_password(new_password))
+    db_delete_reset_token(token)
     return {"success": True}
 
 
@@ -504,103 +495,45 @@ async def start_job(payload: dict, request: Request):
     email = get_session_user(request)
     if not email:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
     topic = payload.get("topic", "").strip()
     if not topic:
         return JSONResponse({"error": "Topic is required"}, status_code=400)
 
     job_id = str(uuid.uuid4())[:8]
-
-    # Save job for persistence
-    conn = get_db()
-    conn.execute("""
-        INSERT INTO active_jobs (job_id, email, topic, status, progress, step)
-        VALUES (?, ?, ?, 'running', 0, 'Starting...')
-    """, (job_id, email, topic))
-    conn.commit()
-    conn.close()
-
     jobs[job_id] = {"status": "running", "step": "Starting...", "progress": 0}
     cancel_flags[job_id] = False
 
     voice = payload.get("voice", "hi-IN-SwaraNeural")
-
-    # Create async task
-    task = asyncio.create_task(
-        run_pipeline(
-            job_id,
-            topic,
-            payload.get("niche", ""),
-            payload.get("video_type", "Shorts"),
-            email,
-            voice
-        )
+    task  = asyncio.create_task(
+        run_pipeline(job_id, topic,
+                     payload.get("niche", ""),
+                     payload.get("video_type", "Shorts"),
+                     email, voice)
     )
-
-    # Save task reference
     jobs[job_id]["task"] = task
-
     return {"job_id": job_id}
 
-# ====================== CANCEL JOB ======================
+
 @app.post("/api/cancel-job/{job_id}")
 def cancel_job(job_id: str, request: Request):
     email = get_session_user(request)
-
     if not email:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
     if job_id not in jobs:
         return JSONResponse({"error": "Job not found"}, status_code=404)
-
-    # Cancel flag ON
     cancel_flags[job_id] = True
-
-    # Memory update
-    jobs[job_id]["status"] = "canceled"
-    jobs[job_id]["step"] = "Canceled by user"
+    jobs[job_id]["status"]   = "canceled"
+    jobs[job_id]["step"]     = "Canceled by user"
     jobs[job_id]["progress"] = 0
-
-    # Database update
-    try:
-        conn = get_db()
-
-        conn.execute("""
-            UPDATE active_jobs
-            SET status = 'canceled',
-                step = 'Canceled by user'
-            WHERE job_id = ? AND email = ?
-        """, (job_id, email))
-
-        conn.commit()
-        conn.close()
-
-    except Exception as e:
-        print(f"[{job_id}] DB Cancel Error: {e}")
-
-    print(f"[{job_id}] ❌ Job canceled successfully")
-
-    return {
-        "success": True,
-        "message": "Generation canceled"
-    }
+    return {"success": True}
 
 
 @app.get("/api/status/{job_id}")
 async def job_status(job_id: str):
-
     if job_id not in jobs:
-        return JSONResponse(
-            {"error": "Job not found"},
-            status_code=404
-        )
-
+        return JSONResponse({"error": "Job not found"}, status_code=404)
     job = jobs[job_id].copy()
-
-    # Remove asyncio task before JSON response
-    if "task" in job:
-        del job["task"]
-
+    job.pop("task", None)
     return job
 
 
@@ -609,26 +542,7 @@ def get_history(request: Request):
     email = get_session_user(request)
     if not email:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    conn = get_db()
-    rows = conn.execute(
-        "SELECT job_id, topic, video_url, title, tags, created_at FROM videos WHERE email = ? ORDER BY created_at DESC",
-        (email,)
-    ).fetchall()
-    conn.close()
-    videos = []
-    for r in rows:
-        # Check if video file still exists
-        video_path = OUTPUT_DIR / r["job_id"] / "final_shorts.mp4"
-        if video_path.exists():
-            videos.append({
-                "job_id":     r["job_id"],
-                "topic":      r["topic"],
-                "video_url":  r["video_url"],
-                "title":      r["title"],
-                "tags":       r["tags"],
-                "created_at": r["created_at"],
-            })
-    return {"videos": videos}
+    return {"videos": db_get_videos(email)}
 
 
 @app.delete("/api/history/{job_id}")
@@ -636,29 +550,43 @@ def delete_history(job_id: str, request: Request):
     email = get_session_user(request)
     if not email:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    conn = get_db()
-    # Only delete if it belongs to this user
-    conn.execute("DELETE FROM videos WHERE job_id = ? AND email = ?", (job_id, email))
-    conn.commit()
-    conn.close()
-    # Also delete files
-    import shutil
-    job_dir = OUTPUT_DIR / job_id
-    if job_dir.exists():
-        shutil.rmtree(str(job_dir))
+    db_delete_video(job_id, email)
     return {"success": True}
 
 
 @app.get("/api/download/{job_id}")
-def download_video(job_id: str):
-    video_path = OUTPUT_DIR / job_id / "final_shorts.mp4"
-    if not video_path.exists():
-        return JSONResponse({"error": "Video not ready"}, status_code=404)
-    return FileResponse(
-        str(video_path),
-        media_type="video/mp4",
-        filename=f"shorts_{job_id}.mp4",
-    )
+async def download_video(job_id: str):
+    # Get video URL from database
+    result = supabase.table("videos").select("video_url, title").eq("job_id", job_id).execute()
+    
+    if not result.data:
+        return JSONResponse({"error": "Video not found"}, status_code=404)
+    
+    video_url = result.data[0]["video_url"]
+    title = result.data[0].get("title", f"starfilm_{job_id}") or f"starfilm_{job_id}"
+    
+    # Clean title for filename
+    filename = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_') + ".mp4"
+    
+    try:
+        # Fetch video from Rendi storage
+        response = requests.get(video_url, stream=True, timeout=60)
+        response.raise_for_status()
+        
+        # Return as downloadable file
+        return StreamingResponse(
+            response.iter_content(chunk_size=8192),
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": response.headers.get("content-length", ""),
+            }
+        )
+        
+    except Exception as e:
+        print(f"Download error: {e}")
+        # Fallback: simple redirect (agar streaming fail ho)
+        return RedirectResponse(url=video_url)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -670,191 +598,233 @@ def update_job(job_id: str, step: str, progress: int):
     jobs[job_id]["progress"] = progress
     print(f"[{job_id}] {progress}% - {step}")
 
-def is_job_canceled(job_id: str) -> bool:
+def is_canceled(job_id: str) -> bool:
     return cancel_flags.get(job_id, False)
 
 
-async def run_pipeline(
-    job_id: str,
-    topic: str,
-    niche: str,
-    video_type: str,
-    user_email: str = "",
-    voice: str = "hi-IN-SwaraNeural"
-):
-    job_dir = OUTPUT_DIR / job_id
-    job_dir.mkdir(exist_ok=True)
+async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
+    job_dir = TMP_DIR / job_id
+    job_dir.mkdir(exist_ok=True, parents=True)
 
     try:
-
-        # ─────────────────────────────
-        # 1. SCRIPT
-        # ─────────────────────────────
+        # ── 1. SCRIPT ──────────────────────────────────────────
         update_job(job_id, "Writing emotional script...", 15)
+        script = await asyncio.to_thread(generate_script, topic, niche, voice)
+        if is_canceled(job_id): return
 
-        script = await asyncio.to_thread(
-            generate_script,
-            topic,
-            niche,
-            voice
-        )
-
-        if is_job_canceled(job_id):
-            jobs[job_id]["status"] = "canceled"
-            jobs[job_id]["step"] = "Canceled by user"
-            return
-
-        # ─────────────────────────────
-        # 2. VOICE
-        # ─────────────────────────────
-        update_job(job_id, "Generating natural voice...", 30)
-
-        voice_path = job_dir / "voice.mp3"
-
+        # ── 2. VOICE ───────────────────────────────────────────
+        update_job(job_id, "Generating voice...", 30)
+        voice_path = str(job_dir / "voice.mp3")
         await asyncio.to_thread(
             generate_voice,
             script.get("voice_text", script.get("full_script", topic)),
-            str(voice_path),
-            voice
+            voice_path, voice
         )
+        if is_canceled(job_id): return
 
-        if is_job_canceled(job_id):
-            jobs[job_id]["status"] = "canceled"
-            jobs[job_id]["step"] = "Canceled by user"
-            return
+        # Voice duration check karo
+        import subprocess
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", 
+            "format=duration", "-of", "csv=p=0", voice_path],
+            capture_output=True, text=True
+        )
+        try:
+            duration = float(result.stdout.strip())
+            print(f"  Voice duration: {duration:.1f} sec")
+            if duration < 30:
+                print("  Voice too short! Regenerating with longer script...")
+                # Script dobara banao
+                script["voice_text"] = script["voice_text"] + " " + script.get("body", "") + " " + script.get("cta", "")
+                await asyncio.to_thread(
+                    generate_voice,
+                    script["voice_text"],
+                    voice_path, voice
+                )
+        except:
+            print("  Could not check voice duration")
 
-        # ─────────────────────────────
-        # 3. IMAGES
-        # ─────────────────────────────
+        # ── 3. IMAGES ──────────────────────────────────────────
         update_job(job_id, "Generating images...", 45)
-
         image_paths = await asyncio.to_thread(
-            generate_images,
-            topic,
-            niche,
-            str(job_dir),
-            job_id
+            generate_images, topic, niche, str(job_dir), job_id
+        )
+        if is_canceled(job_id): return
+
+        # ── 4. RENDI FFmpeg VIDEO ──────────────────────────────
+        update_job(job_id, "Uploading voice to cloud...", 60)
+        time.sleep(2)  # small buffer
+
+        # Voice Cloudinary par upload karo
+        import cloudinary.uploader
+        voice_result = cloudinary.uploader.upload(
+            voice_path,
+            resource_type="video",
+            folder="starfilm/voices",
+        )
+        voice_url = voice_result["secure_url"]
+
+        # Images ki Pollinations URLs directly use karo
+        niche_key = niche.lower().replace(" ", "_").replace("-", "_")
+        base = f"Ultra photorealistic vertical 9:16 image about {topic}, cinematic lighting, detailed, 8k"
+        raw_prompts = CATEGORY_PROMPTS.get(niche_key, [
+            f"{base}, emotional close-up portrait",
+            f"{base}, intense dramatic moment",
+            f"{base}, surprised emotional reaction",
+            f"{base}, sad emotional scene",
+            f"{base}, happy emotional moment",
+            f"{base}, dramatic storytelling",
+            f"{base}, close-up with strong emotion",
+            f"{base}, peaceful powerful moment",
+            f"{base}, dynamic cinematic shot",
+            f"{base}, heart touching ending scene"
+        ])[:10]
+
+        image_urls = []
+        for i, prompt in enumerate(raw_prompts, 1):
+            final_prompt = prompt.replace("{base}", base)
+            encoded = requests.utils.quote(final_prompt)
+            url = f"https://image.pollinations.ai/prompt/{encoded}?width=608&height=1080&nologo=true&seed={i*777}"
+            image_urls.append(url)
+
+        if is_canceled(job_id): return
+
+        # ── 5. FFMPEG COMMAND BANAO ────────────────────────────
+        update_job(job_id, "Compiling video with Rendi...", 75)
+
+        n = len(image_urls)
+
+        # Voice duration pehle check karo
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-show_entries",
+                "format=duration", "-of", "csv=p=0", voice_path],
+                capture_output=True, text=True
+            )
+            voice_duration = float(result.stdout.strip())
+            print(f"  Voice duration: {voice_duration:.1f} sec")
+        except:
+            voice_duration = 40.0
+
+        # Har image ko equal time do based on voice duration
+        img_dur = (voice_duration + 2.0) / n  # 2 sec extra buffer
+        img_dur = max(3.0, min(img_dur, 8.0))  # min 3sec, max 8sec per image
+        print(f"  Image duration: {img_dur:.2f} sec each")
+
+       # print(f"  Target Video Duration: {target_video_duration} sec | Each image: {img_dur:.2f} sec")
+
+        # Inputs
+        rendi_inputs = []
+        for i, url in enumerate(image_urls):
+            rendi_inputs.append({"url": url, "name": f"image{i+1}_jpg"})
+        rendi_inputs.append({"url": voice_url, "name": "voice_mp3"})
+
+        # FFmpeg command build karo
+        input_args = ""
+        for i in range(n):
+            input_args += f"-loop 1 -t {img_dur} -i {{{{in_image{i+1}_jpg}}}} "
+        input_args += "-i {{in_voice_mp3}}"
+
+        filters = []
+        for i in range(n):
+            filters.append(
+                f"[{i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+                f"pad=1080:1920:(ow-iw)/2:(oh-ih)/2[v{i}]"
+            )
+
+        prev  = "v0"
+        xfade = ""
+        for i in range(1, n):
+            out_label = f"v0{i}" if i < n-1 else "vout"
+            offset    = (i * img_dur) - 0.8
+            xfade    += f"[{prev}][v{i}]xfade=transition=fade:duration=0.7:offset={offset}[{out_label}];"
+            prev      = out_label
+
+        filter_complex = (
+            ";".join(filters) + ";" +
+            xfade +
+            f"[vout]fps=30[vfinal];[{n}:a]volume=2.0[aout]"
         )
 
-        if is_job_canceled(job_id):
-            jobs[job_id]["status"] = "canceled"
-            jobs[job_id]["step"] = "Canceled by user"
-            return
-
-        # ─────────────────────────────
-        # 4. VIDEO
-        # ─────────────────────────────
-        update_job(job_id, "Compiling video (FFmpeg)...", 70)
-
-        final_video = job_dir / "final_shorts.mp4"
-
-        await asyncio.to_thread(
-            compile_video,
-            image_paths,
-            str(voice_path),
-            str(final_video),
-            job_id
+        ffmpeg_command = (
+            f"{input_args} "
+            f"-filter_complex \"{filter_complex}\" "
+            f"-map [vfinal] -map [aout] "
+            f"-c:v libx264 -preset ultrafast -crf 26 "
+            f"-c:a aac -b:a 128k "
+            f"-shortest -pix_fmt yuv420p "
+            f"-pix_fmt yuv420p {{{{out_output_mp4}}}}"
         )
 
-        if is_job_canceled(job_id):
-            jobs[job_id]["status"] = "canceled"
-            jobs[job_id]["step"] = "Canceled by user"
-            return
+        # Rendi par run karo
+        video_url = await asyncio.to_thread(
+            rendi_run_ffmpeg, ffmpeg_command, rendi_inputs
+        )
 
-        # ─────────────────────────────
-        # 5. METADATA
-        # ─────────────────────────────
+        if is_canceled(job_id): return
+
+        # ── 6. METADATA ────────────────────────────────────────
         meta = generate_metadata(topic)
 
-        (job_dir / "metadata.json").write_text(
-            json.dumps(meta, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
+        # ── SUCCESS ────────────────────────────────────────────
+        jobs[job_id]["status"]    = "done"
+        jobs[job_id]["step"]      = "Video ready!"
+        jobs[job_id]["progress"]  = 100
+        jobs[job_id]["video_url"] = video_url
+        jobs[job_id]["metadata"]  = meta
+        jobs[job_id]["script"]    = script
 
-        # ─────────────────────────────
-        # SUCCESS
-        # ─────────────────────────────
-        jobs[job_id]["status"] = "done"
-        jobs[job_id]["step"] = "Video ready!"
-        jobs[job_id]["progress"] = 100
-        jobs[job_id]["video_url"] = f"/output/{job_id}/final_shorts.mp4"
-        jobs[job_id]["metadata"] = meta
-        jobs[job_id]["script"] = script
-
-        # Save history
         if user_email:
-
             try:
-                conn = get_db()
-
-                conn.execute(
-                    """
-                    INSERT INTO videos
-                    (job_id, email, topic, video_url, title, tags)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        job_id,
-                        user_email,
-                        topic,
-                        f"/output/{job_id}/final_shorts.mp4",
-                        meta.get("title", topic),
-                        meta.get("tags", "")
-                    )
+                db_save_video(
+                    job_id, user_email, topic, video_url,
+                    meta.get("title", topic), meta.get("tags", "")
                 )
+            except Exception as e:
+                print(f"History save error: {e}")
 
-                conn.commit()
-                conn.close()
-
-            except Exception as db_err:
-                print(f"History save error: {db_err}")
+        # Temp files clean karo
+        import shutil
+        shutil.rmtree(str(job_dir), ignore_errors=True)
 
     except Exception as e:
         import traceback
-
         traceback.print_exc()
-
         jobs[job_id]["status"] = "error"
-        jobs[job_id]["step"] = f"Error: {str(e)}"
-        jobs[job_id]["error"] = str(e)
+        jobs[job_id]["step"]   = f"Error: {str(e)}"
+        jobs[job_id]["error"]  = str(e)
 
 
 # ═══════════════════════════════════════════════════════════════
 #  STEP FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
-def generate_script(topic: str, niche: str, voice: str = "hi-IN-SwaraNeural"):
-    """Generate script in Hindi or English based on selected voice"""
-    
+def generate_script(topic, niche, voice="hi-IN-SwaraNeural"):
     language = "Hindi" if "hi-IN" in voice else "English"
-    script_style = "emotional, heart touching YouTube Shorts style" if "hi-IN" in voice else "emotional, engaging YouTube Shorts style"
     
     prompt = f"""
-You are a professional YouTube Shorts script writer.
-
+You are a professional Shorts script writer.
 Topic: {topic}
 Niche: {niche}
 Language: {language}
-Style: {script_style}
 
-Write a powerful emotional short story script in **{language}** language only.
+Write a **detailed emotional story** that is long enough for a **40-50 second video**.
+Make it engaging with good storytelling, emotions, and a strong ending.
 
-Structure:
-1. Hook (first 3-5 seconds - very catchy)
-2. Body (story development with emotions)
-3. Twist / Climax
-4. Emotional ending + CTA
+Requirements:
+- Total speaking time should be around 50-60 seconds when spoken naturally at normal pace.
+- voice_text field mein kam az kam 200-250 words likhna zaroori hai.
+- Include hook, emotional body, and powerful CTA.
 
-Return response in valid JSON format only:
+Return ONLY valid JSON:
 {{
   "hook": "...",
   "body": "...",
   "cta": "...",
   "full_script": "...",
-  "voice_text": "..."   // This text will be used for TTS
+  "voice_text": "..."
 }}
-
-Full script should be natural and spoken style. Use emotional language.
 """
 
     try:
@@ -862,35 +832,32 @@ Full script should be natural and spoken style. Use emotional language.
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.85,
-            max_tokens=1200,
+            temperature=0.85, 
+            max_tokens=1500,   # Increased
         )
-        
         content = response.choices[0].message.content.strip()
         
-        # Clean JSON if needed
+        # Clean JSON
         if content.startswith("```json"):
             content = content.split("```json")[1].split("```")[0].strip()
         elif content.startswith("```"):
             content = content.split("```")[1].strip()
-        
-        meta = json.loads(content)
-        return meta
+            
+        return json.loads(content)
         
     except Exception as e:
-        print(f"Script Generation Error: {e}")
-        # Fallback
+        print(f"Script Error: {e}")
+        # Fallback longer script
         return {
-            "hook": f"{topic} ki emotional kahani...",
-            "body": "Yeh ek bohot hi dilchasp aur emotional story hai...",
-            "cta": "Video poori dekhiye aur like + subscribe karna na bhooliye!",
-            "full_script": f"{topic} - Ek emotional kahani...",
-            "voice_text": f"{topic} ki yeh emotional story aapko zaroor rulayegi..."
+            "hook": f"{topic} ki ek emotional aur inspiring kahani...",
+            "body": "Yeh story ek aise insaan ki hai jo bohot mushkilon se guzra... har din insult hota tha... lekin usne haar nahi maani... secretly mehnat karta raha... aur ek din uski zindagi badal gayi...",
+            "cta": "Agar yeh story pasand aayi to like aur subscribe kar dena! Comment mein batao aapki kya soch hai.",
+            "full_script": f"{topic} - Ek dilchasp aur emotional kahani jo aapko sochne par majboor kar degi...",
+            "voice_text": f"Ek delivery boy jo roz insult hota tha... secretly AI tools seekh raha tha... 5 saal baad woh billion dollar company ka CEO ban gaya... aur wohi log jo usko insult karte the, ab uske office mein job interview dene aaye... {topic} ki yeh emotional story aapko zaroor inspire karegi."
         }
 
 
-def generate_voice(text: str, output_path: str, voice: str = "hi-IN-SwaraNeural"):
-    """Generate natural voice using Edge-TTS (Free)"""
+def generate_voice(text, output_path, voice="hi-IN-SwaraNeural"):
     try:
         import edge_tts
         communicate = edge_tts.Communicate(text, voice)
@@ -898,25 +865,36 @@ def generate_voice(text: str, output_path: str, voice: str = "hi-IN-SwaraNeural"
         print(f"  Voice generated: {voice}")
         return True
     except Exception as e:
-        print(f"Edge-TTS Error: {e}. Falling back to VoiceRSS...")
-        return generate_voice_voicerss(text, output_path)
+        print(f"Edge-TTS Error: {e}")
+        # ElevenLabs fallback
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            raise ValueError("No voice service available!")
+        
+        # ElevenLabs Hindi voice ID
+        voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam voice
+        
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        }
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        with open(output_path, "wb") as f:
+            f.write(resp.content)
+        print("  Voice generated: ElevenLabs")
+        return True
 
 
-def generate_voice_voicerss(text: str, output_path: str):
-    """Fallback method"""
-    api_key = os.getenv("VOICERSS_API_KEY")
-    if not api_key:
-        raise ValueError("No voice service available!")
-    
-    url = f"https://api.voicerss.org/?key={api_key}&hl=en-us&c=MP3&src={requests.utils.quote(text)}&r=0&f=48khz_16bit_stereo"
-    resp = requests.get(url, timeout=60)
-    resp.raise_for_status()
-    with open(output_path, "wb") as f:
-        f.write(resp.content)
-    return True
-
-
-# Category-wise Prompts (Aapke diye gaye)
 CATEGORY_PROMPTS = {
     "ai_emotional_story": [
         "{base} futuristic emotional portrait, cyberpunk cinematic lighting",
@@ -930,18 +908,6 @@ CATEGORY_PROMPTS = {
         "{base} cinematic sci-fi emotional action shot",
         "{base} heart touching futuristic ending scene"
     ],
-    "horror": [
-        "{base} terrifying dark atmosphere, horror cinematic lighting",
-        "{base} scary close-up face, dramatic shadows",
-        "{base} abandoned haunted place, ultra realistic",
-        "{base} creepy emotional moment, dark foggy scene",
-        "{base} monster reveal scene, cinematic horror style",
-        "{base} intense fear expression, detailed eyes",
-        "{base} suspense thriller shot, realistic lighting",
-        "{base} ghostly emotional scene, horror movie vibe",
-        "{base} cinematic chase scene, dark environment",
-        "{base} shocking final horror moment, ultra detailed"
-    ],
     "motivation": [
         "{base} inspiring cinematic portrait, powerful expression",
         "{base} success mindset moment, golden lighting",
@@ -954,17 +920,17 @@ CATEGORY_PROMPTS = {
         "{base} dynamic action success shot, high energy",
         "{base} heart touching inspirational ending scene"
     ],
-    "animal_story": [
-        "{base} cute emotional animal close-up, Pixar style",
-        "{base} emotional pet moment, soft cinematic lighting",
-        "{base} sad animal expression, ultra detailed eyes",
-        "{base} happy animal friendship scene, warm tones",
-        "{base} lost animal emotional scene, dramatic mood",
-        "{base} brave animal hero moment, cinematic storytelling",
-        "{base} emotional reunion with animal, realistic lighting",
-        "{base} peaceful nature animal scene, beautiful atmosphere",
-        "{base} cinematic animal rescue action scene",
-        "{base} touching emotional animal ending scene"
+    "horror": [
+        "{base} terrifying dark atmosphere, horror cinematic lighting",
+        "{base} scary close-up face, dramatic shadows",
+        "{base} abandoned haunted place, ultra realistic",
+        "{base} creepy emotional moment, dark foggy scene",
+        "{base} monster reveal scene, cinematic horror style",
+        "{base} intense fear expression, detailed eyes",
+        "{base} suspense thriller shot, realistic lighting",
+        "{base} ghostly emotional scene, horror movie vibe",
+        "{base} cinematic chase scene, dark environment",
+        "{base} shocking final horror moment, ultra detailed"
     ],
     "romance": [
         "{base} romantic cinematic close-up, soft lighting",
@@ -977,30 +943,6 @@ CATEGORY_PROMPTS = {
         "{base} peaceful romantic walk, dreamy lighting",
         "{base} cinematic romantic action shot",
         "{base} emotional happy ending love scene"
-    ],
-    "action": [
-        "{base} explosive cinematic action scene",
-        "{base} intense combat moment, ultra realistic",
-        "{base} fast-paced chase sequence, movie style",
-        "{base} dramatic battlefield atmosphere",
-        "{base} heroic action pose, cinematic lighting",
-        "{base} high energy fighting scene",
-        "{base} slow-motion cinematic shot",
-        "{base} intense emotional action close-up",
-        "{base} epic destruction scene, detailed effects",
-        "{base} legendary final battle moment"
-    ],
-    "comedy": [
-        "{base} funny exaggerated expression, cartoon vibe",
-        "{base} hilarious reaction moment",
-        "{base} goofy cinematic scene, colorful atmosphere",
-        "{base} funny accident scene, high detail",
-        "{base} cheerful comedy storytelling moment",
-        "{base} meme-worthy expression, ultra realistic",
-        "{base} awkward funny situation",
-        "{base} playful comedic atmosphere",
-        "{base} energetic comedy action scene",
-        "{base} happy hilarious ending moment"
     ],
     "sad_story": [
         "{base} heartbreaking emotional close-up",
@@ -1026,54 +968,6 @@ CATEGORY_PROMPTS = {
         "{base} cinematic dragon action scene",
         "{base} legendary fantasy ending moment"
     ],
-    "sci_fi": [
-        "{base} futuristic sci-fi cinematic portrait",
-        "{base} neon cyberpunk city atmosphere",
-        "{base} advanced technology environment",
-        "{base} spaceship cinematic scene",
-        "{base} glowing futuristic armor, ultra detailed",
-        "{base} alien world storytelling shot",
-        "{base} emotional sci-fi character close-up",
-        "{base} high-tech action sequence",
-        "{base} cinematic futuristic battle scene",
-        "{base} epic sci-fi ending moment"
-    ],
-    "thriller": [
-        "{base} suspenseful cinematic atmosphere",
-        "{base} mysterious dark alley scene",
-        "{base} intense thriller close-up expression",
-        "{base} hidden danger cinematic shot",
-        "{base} psychological tension moment",
-        "{base} dramatic shadows and lighting",
-        "{base} suspense storytelling environment",
-        "{base} cinematic mystery action scene",
-        "{base} shocking revelation moment",
-        "{base} edge-of-seat thriller ending"
-    ],
-    "historical": [
-        "{base} historical cinematic portrait",
-        "{base} ancient civilization atmosphere",
-        "{base} royal historical environment",
-        "{base} historical battlefield scene",
-        "{base} vintage cinematic storytelling",
-        "{base} emotional historical moment",
-        "{base} traditional clothing ultra detailed",
-        "{base} epic ancient action sequence",
-        "{base} legendary historical atmosphere",
-        "{base} emotional historical ending"
-    ],
-    "spiritual": [
-        "{base} peaceful spiritual atmosphere",
-        "{base} divine cinematic lighting",
-        "{base} emotional spiritual meditation scene",
-        "{base} heavenly glowing environment",
-        "{base} calm emotional portrait",
-        "{base} spiritual awakening cinematic shot",
-        "{base} peaceful nature storytelling",
-        "{base} emotional faith moment",
-        "{base} cinematic spiritual journey",
-        "{base} heart touching peaceful ending"
-    ],
     "superhero": [
         "{base} superhero cinematic portrait",
         "{base} epic heroic action pose",
@@ -1086,180 +980,212 @@ CATEGORY_PROMPTS = {
         "{base} heroic sacrifice emotional moment",
         "{base} epic superhero ending"
     ],
-    "kids_story": [
-        "{base} colorful cartoon storytelling scene",
-        "{base} cute happy animated character",
-        "{base} magical playful atmosphere",
-        "{base} cheerful kids adventure moment",
-        "{base} adorable emotional expression",
-        "{base} fantasy cartoon environment",
-        "{base} bright joyful cinematic lighting",
-        "{base} playful action storytelling shot",
-        "{base} friendship emotional scene",
-        "{base} happy fairytale ending"
+
+    # ================== NEW NICHES ==================
+
+    "comedy": [
+        "{base} funny expression comedy scene, cinematic lighting",
+        "{base} hilarious moment, bright vibrant colors",
+        "{base} comedian doing prank, ultra realistic",
+        "{base} laughing face close-up, funny atmosphere",
+        "{base} comedy skit action shot",
+        "{base} silly funny situation, high detail",
+        "{base} group laughing together, warm lighting",
+        "{base} epic fail comedy moment",
+        "{base} sarcastic funny expression",
+        "{base} heartwarming comedy ending scene"
+    ],
+    "gaming": [
+        "{base} intense gaming moment, neon lighting",
+        "{base} gamer victory scene, cinematic style",
+        "{base} playing PUBG/Free Fire, ultra realistic",
+        "{base} gaming setup with RGB lights",
+        "{base} emotional gamer reaction close-up",
+        "{base} epic game battle scene",
+        "{base} Minecraft fantasy world",
+        "{base} pro gamer portrait, dramatic lighting",
+        "{base} game over funny moment",
+        "{base} celebrating win in game"
+    ],
+    "tech_reviews": [
+        "{base} smartphone unboxing cinematic shot",
+        "{base} latest gadget review scene",
+        "{base} tech reviewer holding phone, studio lighting",
+        "{base} futuristic tech atmosphere",
+        "{base} comparing two smartphones",
+        "{base} tech product close-up, ultra detailed",
+        "{base} person using new gadget",
+        "{base} tech news announcement scene",
+        "{base} budget vs premium gadget",
+        "{base} excited tech reviewer moment"
+    ],
+    "finance": [
+        "{base} money growth cinematic scene",
+        "{base} successful businessman with money",
+        "{base} stock market emotional moment",
+        "{base} crypto trading atmosphere",
+        "{base} rich lifestyle luxury shot",
+        "{base} financial freedom moment",
+        "{base} investment success scene",
+        "{base} saving money concept, cinematic",
+        "{base} side hustle success story",
+        "{base} money rain emotional shot"
+    ],
+    "fitness": [
+        "{base} intense gym workout scene",
+        "{base} muscular body transformation",
+        "{base} home workout motivation shot",
+        "{base} fitness motivation close-up",
+        "{base} sweating after hard workout",
+        "{base} yoga peaceful moment",
+        "{base} weight loss progress cinematic",
+        "{base} athletic powerful pose",
+        "{base} gym dedication emotional scene",
+        "{base} fitness victory moment"
+    ],
+    "beauty_makeup": [
+        "{base} beautiful makeup tutorial close-up",
+        "{base} glamorous makeup transformation",
+        "{base} skincare routine cinematic shot",
+        "{base} bridal makeup look",
+        "{base} before and after makeup",
+        "{base} glowing skin beauty shot",
+        "{base} fashion makeup studio lighting",
+        "{base} lipstick application moment",
+        "{base} elegant beauty portrait",
+        "{base} makeup artist at work"
+    ],
+    "cooking_recipes": [
+        "{base} delicious food close-up, appetizing",
+        "{base} cooking in kitchen cinematic shot",
+        "{base} street food vibrant scene",
+        "{base} homemade biryani plating",
+        "{base} food preparation moment",
+        "{base} mouthwatering dessert shot",
+        "{base} chef cooking passionately",
+        "{base} Pakistani recipe final look",
+        "{base} healthy meal preparation",
+        "{base} food vlog emotional shot"
+    ],
+    "travel_vlog": [
+        "{base} beautiful travel destination cinematic",
+        "{base} solo traveler mountain view",
+        "{base} Pakistan tourism scenic shot",
+        "{base} exploring hidden places",
+        "{base} beach sunset travel moment",
+        "{base} adventure travel action shot",
+        "{base} luxury hotel travel vibe",
+        "{base} road trip cinematic scene",
+        "{base} cultural travel experience",
+        "{base} happy traveler ending shot"
+    ],
+    "islamic": [
+        "{base} peaceful mosque interior, serene lighting",
+        "{base} person praying emotional moment",
+        "{base} Quran with beautiful light",
+        "{base} Islamic motivation scene",
+        "{base} Kaaba cinematic view",
+        "{base} Muslim lifestyle peaceful shot",
+        "{base} Ramadan atmosphere",
+        "{base} Dua emotional close-up",
+        "{base} Islamic calligraphy art",
+        "{base} spiritual connection moment"
+    ],
+    "true_crime": [
+        "{base} dark crime scene cinematic",
+        "{base} detective investigation moment",
+        "{base} mysterious thriller atmosphere",
+        "{base} crime storytelling shot",
+        "{base} shocking revelation scene",
+        "{base} police lights dramatic lighting",
+        "{base} true crime emotional face",
+        "{base} suspense dark environment",
+        "{base} courtroom dramatic moment",
+        "{base} final crime twist scene"
+    ],
+    "psychology_facts": [
+        "{base} mind blowing psychology moment",
+        "{base} human brain cinematic shot",
+        "{base} emotional psychology close-up",
+        "{base} dark psychology atmosphere",
+        "{base} body language analysis scene",
+        "{base} human behavior study shot",
+        "{base} mental health emotional scene",
+        "{base} brain facts visual",
+        "{base} psychology experiment moment",
+        "{base} deep thinking portrait"
+    ],
+    "facts": [
+        "{base} mind blowing fact reveal scene",
+        "{base} interesting facts cinematic shot",
+        "{base} did you know moment",
+        "{base} space fact atmosphere",
+        "{base} history fact dramatic lighting",
+        "{base} science fact close-up",
+        "{base} shocking fact emotional reaction",
+        "{base} world record fact scene",
+        "{base} mysterious fact environment",
+        "{base} educational fact ending shot"
+    ],
+    "luxury": [
+        "{base} luxury lifestyle cinematic shot",
+        "{base} supercar aesthetic scene",
+        "{base} rich mansion interior",
+        "{base} luxury watch close-up",
+        "{base} private jet lifestyle",
+        "{base} expensive lifestyle moment",
+        "{base} golden rich atmosphere",
+        "{base} luxury fashion portrait",
+        "{base} billionaire success scene",
+        "{base} dream luxury ending shot"
     ]
 }
 
 
-def generate_images(topic: str, niche: str, job_dir: str, job_id: str = "") -> list:
-    """Generate 10 images - Optimized for Speed"""
-
-    base = f"Ultra photorealistic vertical 9:16 image about {topic}, cinematic lighting, detailed, 8k"
-
+def generate_images(topic, niche, job_dir, job_id=""):
+    base      = f"Ultra photorealistic vertical 9:16 image about {topic}, cinematic lighting, detailed, 8k"
     niche_key = niche.lower().replace(" ", "_").replace("-", "_")
-
-    if niche_key in CATEGORY_PROMPTS:
-        raw_prompts = CATEGORY_PROMPTS[niche_key][:5]
-    else:
-        raw_prompts = [
-            f"{base}, emotional close-up portrait",
-            f"{base}, intense dramatic moment",
-            f"{base}, surprised emotional reaction",
-            f"{base}, sad emotional scene",
-            f"{base}, happy emotional moment",
-            f"{base}, dramatic storytelling",
-            f"{base}, close-up with strong emotion",
-            f"{base}, peaceful powerful moment",
-            f"{base}, dynamic cinematic shot",
-            f"{base}, heart touching ending scene"
-        ]
+    raw_prompts = CATEGORY_PROMPTS.get(niche_key, [
+        f"{base}, emotional close-up portrait",
+        f"{base}, intense dramatic moment",
+        f"{base}, surprised emotional reaction",
+        f"{base}, sad emotional scene",
+        f"{base}, happy emotional moment",
+        f"{base}, dramatic storytelling",
+        f"{base}, close-up with strong emotion",
+        f"{base}, peaceful powerful moment",
+        f"{base}, dynamic cinematic shot",
+        f"{base}, heart touching ending scene"
+    ])[:10]
 
     image_paths = []
-
-    print("🎨 Generating 5 images (Fast Mode)...")
+    print("Generating 10 images...")
 
     for i, prompt in enumerate(raw_prompts, 1):
-
-        # ✅ CANCEL CHECK
-        if job_id and is_job_canceled(job_id):
-            print(f"[{job_id}] Image generation canceled")
+        if job_id and is_canceled(job_id):
             return image_paths
-
         final_prompt = prompt.replace("{base}", base)
-
-        encoded = requests.utils.quote(final_prompt)
-
-        img_url = f"https://image.pollinations.ai/prompt/{encoded}?width=608&height=1080&nologo=true&enhance=false&seed={i*777}"
-
-        out_path = os.path.join(job_dir, f"image{i}.jpg")
-
+        encoded      = requests.utils.quote(final_prompt)
+        img_url      = f"https://image.pollinations.ai/prompt/{encoded}?width=608&height=1080&nologo=true&seed={i*777}"
+        out_path     = os.path.join(job_dir, f"image{i}.jpg")
         for attempt in range(2):
-
             try:
                 r = requests.get(img_url, timeout=50)
-
                 r.raise_for_status()
-
                 with open(out_path, "wb") as f:
                     f.write(r.content)
-
                 image_paths.append(out_path)
-
-                print(f"  ✅ Image {i}/5 saved")
-
+                print(f"  Image {i}/10 saved")
                 break
-
             except:
                 time.sleep(1.5)
 
-    while len(image_paths) < 5 and image_paths:
+    while len(image_paths) < 10 and image_paths:
         image_paths.append(image_paths[-1])
-
-    return image_paths[:5]
-
-
-def compile_video(image_paths: list, voice_path: str, output_path: str, job_id: str = ""):
-
-    # ✅ CANCEL CHECK
-    if job_id and is_job_canceled(job_id):
-        print(f"[{job_id}] Video compilation canceled")
-        return
-
-    if not image_paths:
-        raise RuntimeError("No images provided for video compilation")
-
-    valid_images = []
-
-    for img_path in image_paths:
-
-        if os.path.exists(img_path) and os.path.getsize(img_path) > 5000:
-            valid_images.append(img_path)
-
-        else:
-            print(f"⚠️ Skipping corrupted/missing image: {img_path}")
-
-    if len(valid_images) < 3:
-        raise RuntimeError(f"Too few valid images ({len(valid_images)}). Cannot compile video.")
-
-    image_paths = valid_images
-
-    n = len(image_paths)
-
-    img_dur = 4.2
-
-    print(f"Compiling video with {n} valid images...")
-
-    inputs = []
-
-    for p in image_paths:
-        inputs += ["-loop", "1", "-t", str(img_dur), "-i", p]
-
-    inputs += ["-i", voice_path]
-
-    filters = []
-
-    for i in range(n):
-
-        filters.append(
-            f"[{i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
-            f"zoompan=z='if(eq(on,1),1.0,zoom+0.002)':d={int(img_dur*30)}:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1080x1920[v{i}]"
-        )
-
-    prev = "v0"
-
-    xfade = ""
-
-    for i in range(1, n):
-
-        out_label = f"v0{i}" if i < n-1 else "vout"
-
-        offset = (i * img_dur) - 0.8
-
-        xfade += f"[{prev}][v{i}]xfade=transition=fade:duration=0.7:offset={offset}[{out_label}];"
-
-        prev = out_label
-
-    filter_complex = ";".join(filters) + ";" + xfade + "[vout]fps=30[vfinal];" + f"[{n}:a]volume=2.0[aout]"
-
-    cmd = [
-        "ffmpeg", "-y", *inputs,
-        "-filter_complex", filter_complex,
-        "-map", "[vfinal]", "-map", "[aout]",
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-crf", "28",
-        "-c:a", "mp3",
-        "-b:a", "128k",
-        "-shortest",
-        "-pix_fmt", "yuv420p",
-        output_path
-    ]
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-
-        error_msg = result.stderr[-800:] if result.stderr else "Unknown FFmpeg error"
-
-        print(f"❌ FFmpeg Error: {error_msg}")
-
-        raise RuntimeError(f"FFmpeg Error: {error_msg}")
-
-    print(f"  ✅ Video compiled successfully with {n} images")
+    return image_paths[:10]
 
 
-def generate_metadata(topic: str) -> dict:
-    """Generate YouTube title, description and tags."""
+def generate_metadata(topic):
     import random
     titles = [
         f"This AI Story Will SHOCK You! | {topic} #shorts",
@@ -1268,46 +1194,29 @@ def generate_metadata(topic: str) -> dict:
         f"Nobody Expected This... {topic} #shorts",
         f"The Most EMOTIONAL AI Story Ever | {topic} #shorts",
     ]
-    title = random.choice(titles)
-    description = (
-        f"{topic} - A powerful and emotional AI short story that will leave you speechless.\n\n"
-        "Welcome to our channel where we share the most emotional AI stories every day!\n\n"
-        f"This story is about: {topic}\n\n"
-        "Watch till the end - the twist will shock you!\n\n"
-        "---\n"
-        "LIKE if it touched your heart\n"
-        "SUBSCRIBE for daily emotional AI stories\n"
-        "COMMENT your reaction below\n"
-        "---\n\n"
-        "#AIStory #EmotionalStory #YouTubeShorts #AIShorts #ViralShorts"
-    )
-    tags = [
-        "AI story", "emotional story", "youtube shorts", "AI shorts",
-        "viral shorts", "heart touching", "AI emotional", "shorts",
-        "mind blowing", topic.lower(),
-    ]
-    return {"title": title, "description": description, "tags": ", ".join(tags)}
+    tags = ["AI story", "emotional story", "youtube shorts", "AI shorts", "viral shorts", topic.lower()]
+    return {
+        "title": random.choice(titles),
+        "description": f"{topic} - A powerful emotional AI short story.\nLIKE & SUBSCRIBE!\n#AIStory #Shorts",
+        "tags": ", ".join(tags)
+    }
 
-# ====================== DEFAULT ADMIN ======================
+
+# ═══════════════════════════════════════════════════════════════
+#  ADMIN
+# ═══════════════════════════════════════════════════════════════
+
 def create_default_admin():
-    conn = get_db()
     admin_email = "hamailsyed139@gmail.com"
-    
-    existing = conn.execute("SELECT email FROM admins WHERE email=?", (admin_email,)).fetchone()
-    
-    if not existing:
-        conn.execute(
-            "INSERT INTO admins (email, name, password_hash) VALUES (?, ?, ?)",
-            (admin_email, "Super Admin", hash_password("hamailsyed139"))
-        )
-        conn.commit()
-        print("✅ Default Admin Created → hamailsyed139@gmail.com / hamailsyed139")
-    else:
-        print("Admin already exists.")
-    
-    conn.close()
+    if not db_get_admin(admin_email):
+        db_create_admin(admin_email, "Super Admin", hash_password("hamailsyed139"))
+        print("Default Admin Created")
 
-# ====================== ADMIN ROUTES ======================
+def get_admin_user(request: Request):
+    token = request.cookies.get("admin_session")
+    if not token: return None
+    row = db_get_session(token)
+    return row["email"] if row else None
 
 @app.get("/admin")
 def admin_login_page():
@@ -1315,145 +1224,63 @@ def admin_login_page():
 
 @app.post("/api/admin/login")
 async def admin_login(payload: dict, response: Response):
-    email = payload.get("email", "").strip().lower()
+    email    = payload.get("email", "").strip().lower()
     password = payload.get("password", "")
-
-    conn = get_db()
-    admin = conn.execute("SELECT * FROM admins WHERE email = ?", (email,)).fetchone()
-    conn.close()
-
+    admin    = db_get_admin(email)
     if not admin or admin["password_hash"] != hash_password(password):
         return JSONResponse({"error": "Invalid credentials"}, status_code=401)
-
     token = str(uuid.uuid4())
-    conn = get_db()
-    conn.execute("INSERT INTO sessions (token, email) VALUES (?, ?)", (token, email))
-    conn.commit()
-    conn.close()
-
+    db_create_session(token, email)
     response.set_cookie(key="admin_session", value=token, httponly=True, max_age=86400*7)
     return {"success": True, "name": admin["name"]}
 
-
-def get_admin_user(request: Request):
-    token = request.cookies.get("admin_session")
-    if not token: return None
-    conn = get_db()
-    row = conn.execute("SELECT email FROM sessions WHERE token = ?", (token,)).fetchone()
-    conn.close()
-    return row["email"] if row else None
-
-
 @app.get("/admin/dashboard")
 def admin_dashboard(request: Request):
-    admin_email = get_admin_user(request)
-    if not admin_email:
-        # Strong redirect
-        response = RedirectResponse(url="/admin?error=login_required", status_code=303)
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
-    
+    if not get_admin_user(request):
+        return RedirectResponse(url="/admin?error=login_required", status_code=303)
     return FileResponse(str(STATIC_DIR / "admin-dashboard.html"))
-
 
 @app.get("/api/admin/stats")
 def admin_stats(request: Request):
     if not get_admin_user(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    conn = get_db()
-    total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    total_videos = conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0]
-    today_videos = conn.execute("SELECT COUNT(*) FROM videos WHERE date(created_at) = date('now')").fetchone()[0]
-    conn.close()
-
-    return {
-        "total_users": total_users,
-        "total_videos": total_videos,
-        "today_videos": today_videos
-    }
-
+    total_users, total_videos = db_get_stats()
+    return {"total_users": total_users, "total_videos": total_videos, "today_videos": 0}
 
 @app.get("/api/admin/users")
 def admin_users(request: Request, search: str = ""):
     if not get_admin_user(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    conn = get_db()
+    users = db_get_all_users()
     if search:
-        rows = conn.execute("""
-            SELECT email, name, is_verified, is_blocked, created_at 
-            FROM users 
-            WHERE email LIKE ? OR name LIKE ? 
-            ORDER BY created_at DESC
-        """, (f"%{search}%", f"%{search}%")).fetchall()
-    else:
-        rows = conn.execute("SELECT email, name, is_verified, is_blocked, created_at FROM users ORDER BY created_at DESC").fetchall()
-    conn.close()
-    return {"users": [dict(r) for r in rows]}
-
+        users = [u for u in users if search.lower() in u["email"].lower() or search.lower() in u["name"].lower()]
+    return {"users": users}
 
 @app.get("/api/admin/videos")
 def admin_videos(request: Request):
     if not get_admin_user(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
-    conn = get_db()
-    rows = conn.execute("""
-        SELECT v.job_id, v.topic, v.title, v.video_url, v.created_at, u.name as user_name, u.email
-        FROM videos v
-        LEFT JOIN users u ON v.email = u.email
-        ORDER BY v.created_at DESC
-    """).fetchall()
-    conn.close()
-    return {"videos": [dict(r) for r in rows]}
-
+    return {"videos": db_get_all_videos()}
 
 @app.delete("/api/admin/video/{job_id}")
 def admin_delete_video(job_id: str, request: Request):
     if not get_admin_user(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    
-    conn = get_db()
-    conn.execute("DELETE FROM videos WHERE job_id = ?", (job_id,))
-    conn.commit()
-    conn.close()
-
-    # Delete folder
-    import shutil
-    folder = OUTPUT_DIR / job_id
-    if folder.exists():
-        shutil.rmtree(folder, ignore_errors=True)
+    db_admin_delete_video(job_id)
     return {"success": True}
-
 
 @app.delete("/api/admin/user/{email}")
 def admin_delete_user(email: str, request: Request):
     if not get_admin_user(request):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    
-    conn = get_db()
-    
-    # User ko completely delete + uski sessions clear
-    conn.execute("DELETE FROM users WHERE email = ?", (email,))
-    conn.execute("DELETE FROM videos WHERE email = ?", (email,))
-    conn.execute("DELETE FROM sessions WHERE email = ?", (email,))      # ← Important (logout force)
-    conn.execute("DELETE FROM active_jobs WHERE email = ?", (email,))   # ← Extra safety
-    conn.commit()
-    conn.close()
-
+    db_delete_user(email)
     return {"success": True}
 
 
 # ─── Run ───────────────────────────────────────────────────────
 if __name__ == "__main__":
-    init_db()                    # ← Pehle tables create ho
-    create_default_admin()       # ← Phir admin create ho
-    
     import uvicorn
+    create_default_admin()
     print("\nStarFilm is running!")
-    print("Open in browser: http://localhost:8000")
-    print("Admin Login → http://localhost:8000/admin")
+    print("Open: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
