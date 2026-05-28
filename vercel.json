@@ -9,7 +9,8 @@
   "routes": [
     {
       "src": "/google94a976b56e3b917b.html",
-      "dest": "/google94a976b56e3b917b.html"
+      "dest": "/google94a976b56e3b917b.html",
+      "status": 200
     },
     {
       "src": "/(.*)",
