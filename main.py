@@ -369,9 +369,9 @@ def get_session_user(request: Request):
 #  ROUTES
 # ═══════════════════════════════════════════════════════════════
 
-@app.get("/google94a976b56e3b917b.html", response_class=Response)
+@app.get("/google94a976b56e3b917b.html")
 async def google_verification():
-    return Response(content="google-site-verification: google94a976b56e3b917b.html", media_type="text/html")
+    return Response(content="google-site-verification: google94a976b56e3b917b.html", media_type="text/plain")
 
 @app.get("/")
 def root(request: Request):
