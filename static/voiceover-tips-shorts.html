@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>How to Choose the Perfect Voiceover for Shorts | StarFilm</title>
+    <meta name="description" content="Male vs female? Hindi vs English? Neural voice styles that boost retention.">
+
+  <!-- FAVICON -->
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="/static/favicon-32x32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        :root {
+            --black: #000;
+            --dark: #0d0c0a;
+            --surface: #111008;
+            --card: #161410;
+            --gold: #c9a87c;
+            --gold-lt: #dfc49c;
+            --gold-dk: #a07d52;
+            --gold-dim: rgba(201, 168, 124, 0.12);
+            --gold-bdr: rgba(201, 168, 124, 0.22);
+            --text: #f0ead8;
+            --muted: #7a6e5a;
+            --radius: 4px
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--black);
+            color: var(--text);
+            line-height: 1.5
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            opacity: 0.35
+        }
+
+        .ambient {
+            position: fixed;
+            pointer-events: none;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.08
+        }
+
+        .ambient-1 {
+            width: 600px;
+            height: 600px;
+            background: var(--gold);
+            top: -200px;
+            right: -100px
+        }
+
+        .ambient-2 {
+            width: 450px;
+            height: 450px;
+            background: var(--gold-dk);
+            bottom: -150px;
+            left: -80px
+        }
+
+        .user-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--gold-bdr);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between
+        }
+
+        .user-bar .logo a {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            color: var(--gold);
+            text-transform: uppercase;
+            text-decoration: none
+        }
+
+        .dashboard-link {
+            background: transparent;
+            border: 1px solid rgba(201, 168, 124, 0.28);
+            border-radius: 4px;
+            color: var(--gold);
+            font-size: 0.58rem;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            padding: 5px 12px;
+            text-decoration: none;
+            transition: border-color 0.2s
+        }
+
+        .dashboard-link:hover {
+            border-color: rgba(201, 168, 124, 0.7)
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 100px 28px 60px;
+            position: relative;
+            z-index: 10
+        }
+
+        .blog-header {
+            text-align: center;
+            margin-bottom: 40px
+        }
+
+        .blog-header h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 2.8rem;
+            color: var(--gold);
+            margin-bottom: 16px
+        }
+
+        .blog-meta {
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            color: var(--gold-dk);
+            margin-bottom: 20px
+        }
+
+        .featured-img {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: var(--radius);
+            margin: 20px 0 30px;
+            border: 1px solid var(--gold-bdr)
+        }
+
+        .blog-content p {
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 24px
+        }
+
+        .blog-content h2 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.8rem;
+            color: var(--gold-lt);
+            margin: 32px 0 16px
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 40px;
+            color: var(--gold);
+            text-decoration: none;
+            border-bottom: 1px solid var(--gold);
+            padding-bottom: 4px;
+            transition: 0.2s
+        }
+
+        .back-link:hover {
+            color: var(--gold-lt);
+            letter-spacing: 1px
+        }
+
+        footer {
+            background: linear-gradient(180deg, var(--surface) 0%, #0a0907 100%);
+            padding: 40px 32px 28px;
+            margin-top: 60px;
+            border-top: 1px solid var(--gold-bdr);
+            text-align: center
+        }
+
+        .copyright {
+            font-size: 0.6rem;
+            letter-spacing: 0.18em;
+            color: var(--muted)
+        }
+
+        @media(max-width:680px) {
+            .blog-header h1 {
+                font-size: 2rem
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="ambient ambient-1"></div>
+    <div class="ambient ambient-2"></div>
+    <div class="user-bar">
+        <div class="logo"><a href="/">STARFILM</a></div>
+        <div><a href="/dashboard" class="dashboard-link">Dashboard</a></div>
+    </div>
+    <div class="container">
+        <div class="blog-header">
+            <h1>How to Choose the Perfect Voiceover for Your Shorts</h1>
+            <div class="blog-meta">February 28, 2026 • 3 min read</div>
+            <!-- ✅ Reliable working image (microphone close-up) -->
+            <img class="featured-img" src="https://picsum.photos/id/223/900/400" alt="voiceover studio">
+        </div>
+        <div class="blog-content">
+            <p>The voiceover can make or break your short video. A dull, robotic voice kills retention. A warm,
+                emotional voice keeps viewers watching till the end. Here’s how to choose the right AI voice for your
+                content.</p>
+            <h2>Male vs Female Voice?</h2>
+            <p>No rule says one is better. Test both with your audience. For motivational stories, deeper male voices
+                (like Hindi Madhur) work well. For emotional tales, a soft female voice (like Hindi Swara) often feels
+                more empathetic.</p>
+            <h2>Language Matters</h2>
+            <p>If your target audience is primarily Hindi‑speaking, use Hindi voices. English works for global reach.
+                StarFilm offers both.</p>
+            <h2>Pacing and Emotion</h2>
+            <p>Pick a voice that matches your story’s tempo. Fast, energetic for comedy; slow and deliberate for sad
+                stories. Our AI automatically adjusts to the script’s emotional arcs.</p>
+            <a href="/" class="back-link">← Back to Home</a>
+        </div>
+    </div>
+    <footer>
+        <div class="copyright">© 2026 StarFilm · All Rights Reserved</div>
+    </footer>
+</body>
+
+</html>
