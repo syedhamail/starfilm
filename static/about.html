@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STARFILM — About Us</title>
+
+<!-- FAVICON -->
+<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="icon" href="/static/favicon-32x32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --black: #000000;
+      --dark: #0d0c0a;
+      --surface: #111008;
+      --card: #161410;
+      --gold: #c9a87c;
+      --gold-lt: #dfc49c;
+      --gold-dk: #a07d52;
+      --gold-dim: rgba(201, 168, 124, 0.12);
+      --gold-bdr: rgba(201, 168, 124, 0.22);
+      --text: #f0ead8;
+      --muted: #7a6e5a;
+      --radius: 4px;
+    }
+
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: var(--black);
+      color: var(--text);
+      line-height: 1.5;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.35;
+    }
+
+    /* ambient glow */
+    .ambient {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.08;
+    }
+
+    .ambient-1 {
+      width: 600px;
+      height: 600px;
+      background: var(--gold);
+      top: -200px;
+      right: -100px;
+    }
+
+    .ambient-2 {
+      width: 450px;
+      height: 450px;
+      background: var(--gold-dk);
+      bottom: -150px;
+      left: -80px;
+    }
+
+    /* reusable container */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 28px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* navigation bar (minimal) */
+    .top-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--gold-bdr);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .nav-brand span {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+
+    .nav-links a {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 28px;
+      transition: color 0.25s;
+    }
+
+    .nav-links a:hover {
+      color: var(--gold);
+    }
+
+    @media (max-width: 600px) {
+      .top-nav {
+        padding: 12px 20px;
+      }
+
+      .nav-links a {
+        margin-left: 16px;
+        font-size: 0.58rem;
+      }
+    }
+
+    /* hero section */
+    .hero {
+      padding: 140px 0 70px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--gold-dk);
+      border: 1px solid var(--gold-bdr);
+      padding: 4px 16px;
+      border-radius: 40px;
+      margin-bottom: 28px;
+      backdrop-filter: blur(4px);
+    }
+
+    .hero h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--gold);
+      margin-bottom: 20px;
+      animation: fadeUp 0.9s ease-out;
+    }
+
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 650px;
+      margin: 0 auto;
+      font-weight: 300;
+      letter-spacing: 0.03em;
+      line-height: 1.6;
+    }
+
+    .divider-line {
+      width: 70px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 32px auto 20px;
+    }
+
+    /* cards grid */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin: 60px 0;
+    }
+
+    .info-card {
+      background: var(--card);
+      border: 1px solid var(--gold-bdr);
+      border-radius: var(--radius);
+      padding: 32px 30px;
+      transition: transform 0.3s ease, border-color 0.2s, box-shadow 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .info-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--gold);
+      box-shadow: 0 20px 30px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .info-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 0;
+      background: var(--gold);
+      transition: height 0.4s ease;
+    }
+
+    .info-card:hover::before {
+      height: 100%;
+    }
+
+    .card-icon {
+      font-size: 2.2rem;
+      margin-bottom: 22px;
+      color: var(--gold);
+      opacity: 0.9;
+    }
+
+    .info-card h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      margin-bottom: 16px;
+      color: var(--gold-lt);
+    }
+
+    .info-card p {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    /* values section */
+    .values-section {
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid var(--gold-bdr);
+      border-bottom: 1px solid var(--gold-bdr);
+      padding: 70px 0;
+      margin: 40px 0;
+    }
+
+    .section-title {
+      text-align: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.2rem;
+      font-weight: 600;
+      color: var(--gold);
+      margin-bottom: 50px;
+      letter-spacing: 0.04em;
+    }
+
+    .values-flex {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 40px;
+    }
+
+    .value-item {
+      flex: 1;
+      min-width: 200px;
+      text-align: center;
+      background: var(--surface);
+      padding: 28px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--gold-bdr);
+      transition: all 0.25s;
+    }
+
+    .value-item:hover {
+      border-color: var(--gold);
+      background: var(--card);
+      transform: scale(1.02);
+    }
+
+    .value-icon {
+      font-size: 2rem;
+      margin-bottom: 16px;
+    }
+
+    .value-item h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold-lt);
+      margin-bottom: 12px;
+    }
+
+    .value-item p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    /* team / journey */
+    .journey {
+      padding: 60px 0 40px;
+      text-align: center;
+    }
+
+    .journey-quote {
+      max-width: 800px;
+      margin: 32px auto;
+      font-style: italic;
+      font-size: 1.1rem;
+      color: var(--gold-dk);
+      border-left: 2px solid var(--gold);
+      padding-left: 28px;
+      text-align: left;
+      font-weight: 300;
+      font-family: 'Cormorant Garamond', serif;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      flex-wrap: wrap;
+      margin: 48px 0 30px;
+    }
+
+    .stat-block {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 2.6rem;
+      font-weight: 700;
+      font-family: 'Cormorant Garamond', serif;
+      color: var(--gold);
+      letter-spacing: 2px;
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+    }
+
+        /* ========== NEW PREMIUM FOOTER ========== */
+        footer {
+            background: linear-gradient(180deg, var(--surface) 0%, #0a0907 100%);
+            border-top: none;
+            position: relative;
+            padding: 60px 32px 32px;
+            margin-top: 80px;
+            overflow: hidden;
+        }
+
+        /* top glowing line */
+        footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--gold-dk) 20%,
+                    var(--gold-lt) 50%,
+                    var(--gold-dk) 80%,
+                    transparent 100%);
+            box-shadow: 0 0 8px rgba(201, 168, 124, 0.3);
+        }
+
+        /* subtle film grain overlay on footer */
+        footer::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .footer-inner {
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-main {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        /* left brand area */
+        .footer-brand-area {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .footer-logo-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .footer-logo-icon {
+            width: 42px;
+            height: 42px;
+            filter: drop-shadow(0 0 4px rgba(201, 168, 124, 0.3));
+            transition: transform 0.3s ease;
+        }
+
+        .footer-logo-wrapper:hover .footer-logo-icon {
+            transform: scale(1.02);
+        }
+
+        .footer-brand-text {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: var(--gold);
+            text-transform: uppercase;
+            background: linear-gradient(135deg, var(--gold-lt), var(--gold-dk));
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .footer-tagline {
+            font-size: 0.65rem;
+            letter-spacing: 0.2em;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        /* right links columns */
+        .footer-links-container {
+            display: flex;
+            gap: 64px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links-col {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .footer-links-col a {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-decoration: none;
+            transition: all 0.25s;
+            position: relative;
+            display: inline-block;
+            padding: 4px 0;
+        }
+
+        .footer-links-col a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--gold);
+            transition: width 0.25s ease;
+        }
+
+        .footer-links-col a:hover {
+            color: var(--gold-lt);
+            transform: translateX(4px);
+        }
+
+        .footer-links-col a:hover::after {
+            width: 100%;
+        }
+
+        /* bottom copyright bar */
+        .footer-bottom {
+            border-top: 1px solid rgba(201, 168, 124, 0.15);
+            padding-top: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .copyright {
+            font-size: 0.6rem;
+            letter-spacing: 0.18em;
+            color: var(--muted);
+            font-family: 'Montserrat', sans-serif;
+            text-transform: uppercase;
+        }
+
+        .social-mini {
+            display: flex;
+            gap: 20px;
+        }
+
+        .social-mini a {
+            color: var(--muted);
+            transition: color 0.2s, transform 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .social-mini a:hover {
+            color: var(--gold);
+            transform: translateY(-2px);
+        }
+
+        .social-mini svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+        }
+
+        @media (max-width: 780px) {
+            footer {
+                padding: 48px 24px 28px;
+            }
+
+            .footer-main {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .footer-logo-wrapper {
+                justify-content: center;
+            }
+
+            .footer-links-container {
+                justify-content: center;
+                gap: 40px;
+            }
+
+            .footer-links-col {
+                align-items: center;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+    /* animations */
+    @keyframes fadeUp {
+      0% {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-up {
+      animation: fadeUp 0.7s ease forwards;
+    }
+
+    .delay-1 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.2s;
+    }
+
+    /* responsive */
+    @media (max-width: 780px) {
+      .grid-2col {
+        grid-template-columns: 1fr;
+        gap: 28px;
+      }
+
+      .hero h1 {
+        font-size: 2.6rem;
+      }
+
+      .hero {
+        padding: 110px 0 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 0 20px;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .stats {
+        gap: 28px;
+      }
+    }
+
+    button,
+    a {
+      transition: all 0.2s;
+    }
+
+    .btn-gold {
+      display: inline-block;
+      background: transparent;
+      border: 1px solid var(--gold);
+      padding: 10px 28px;
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--gold);
+      text-decoration: none;
+      margin-top: 24px;
+      border-radius: var(--radius);
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .btn-gold:hover {
+      background: var(--gold);
+      color: var(--black);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ambient ambient-1"></div>
+  <div class="ambient ambient-2"></div>
+
+  <!-- User bar -->
+  <div id="user-bar"
+    style="position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);border-bottom:1px solid rgba(201,168,124,0.12);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;">
+    <div
+      style="font-family:'Cormorant Garamond',serif;font-size:0.9rem;font-weight:700;letter-spacing:0.18em;color:#c9a87c;text-transform:uppercase;">
+      <a href="/" style="color:#c9a87c;text-decoration:none;">StarFilm</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/dashboard"
+        style="background:transparent;border:1px solid rgba(201,168,124,0.28);border-radius:4px;color:#c9a87c;font-family:'Montserrat',sans-serif;font-size:0.58rem;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;padding:5px 12px;text-decoration:none;"
+        onmouseover="this.style.borderColor='rgba(201,168,124,0.7)'"
+        onmouseout="this.style.borderColor='rgba(201,168,124,0.28)'">Dashboard</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-badge fade-up">✦ CINEMATIC AI STUDIO ✦</div>
+      <h1 class="fade-up delay-1">Where stories<br>become moving images</h1>
+      <div class="divider-line"></div>
+      <p class="hero-sub fade-up delay-2">We craft emotionally powerful short films using next‑generation artificial
+        intelligence. No camera crews, no delays — just your vision, transformed into cinema-grade vertical videos in
+        minutes.</p>
+    </div>
+
+    <!-- mission + story grid -->
+    <div class="grid-2col">
+      <div class="info-card">
+        <div class="card-icon">🎬</div>
+        <h3>Our Mission</h3>
+        <p>Democratize high‑impact storytelling. StarFilm empowers creators, storytellers, and brands to produce
+          captivating Shorts, Reels, and TikToks with cinematic quality. We merge human imagination with AI precision —
+          every frame, every voice, every beat.</p>
+      </div>
+      <div class="info-card">
+        <div class="card-icon">✨</div>
+        <h3>The Spark</h3>
+        <p>Born from a passion for visual narrative and frustration with traditional production timelines, StarFilm was
+          built to let ideas flow freely. Our AI engine writes scripts, generates realistic voiceovers, and compiles
+          breathtaking scenes — all under 2 minutes.</p>
+      </div>
+    </div>
+
+    <!-- values section -->
+    <div class="values-section">
+      <div class="container" style="padding:0;">
+        <div class="section-title">✦ Our pillars ✦</div>
+        <div class="values-flex">
+          <div class="value-item">
+            <div class="value-icon">⚡</div>
+            <h4>Speed & Precision</h4>
+            <p>From script to final export in minutes, without sacrificing emotion or quality.</p>
+          </div>
+          <div class="value-item">
+            <div class="value-icon">🎭</div>
+            <h4>Authentic Emotion</h4>
+            <p>AI that understands pacing, tone, and human resonance — each video feels alive.</p>
+          </div>
+          <div class="value-item">
+            <div class="value-icon">🔒</div>
+            <h4>Creator First</h4>
+            <p>Your stories remain yours. Full ownership, transparent workflows, and absolute privacy.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- journey & stats -->
+    <div class="journey">
+      <div class="section-title" style="font-size: 1.8rem;">The journey so far</div>
+      <div class="journey-quote">
+        “We started with a simple belief: every great story deserves to be seen. Today, StarFilm powers thousands of
+        viral moments, helping creators reach audiences they never imagined.”
+      </div>
+      <div class="stats">
+        <div class="stat-block">
+          <div class="stat-number">12K+</div>
+          <div class="stat-label">Videos Generated</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number">98%</div>
+          <div class="stat-label">Creator Satisfaction</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-number">2</div>
+          <div class="stat-label">Languages & Voices</div>
+        </div>
+      </div>
+      <a href="/" class="btn-gold">Start your story →</a>
+    </div>
+  </div>
+
+  <!-- Premium Footer (unchanged, exactly as provided) -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-main">
+        <div class="footer-brand-area">
+          <div class="footer-logo-wrapper">
+            <svg class="footer-logo-icon" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="28" cy="22" r="11" stroke="#c9a87c" stroke-width="3" />
+              <circle cx="28" cy="22" r="4" stroke="#c9a87c" stroke-width="2.5" />
+              <circle cx="52" cy="18" r="8" stroke="#c9a87c" stroke-width="3" />
+              <circle cx="52" cy="18" r="3" stroke="#c9a87c" stroke-width="2" />
+              <rect x="18" y="32" width="38" height="22" rx="3" stroke="#c9a87c" stroke-width="3" />
+              <rect x="8" y="36" width="10" height="6" rx="2" stroke="#c9a87c" stroke-width="2.5" />
+              <path d="M56 36 L66 32 L66 46 L56 42 Z" stroke="#c9a87c" stroke-width="2.5" stroke-linejoin="round" />
+              <line x1="30" y1="36" x2="30" y2="50" stroke="#c9a87c" stroke-width="1.5" />
+              <line x1="24" y1="40" x2="28" y2="46" stroke="#c9a87c" stroke-width="1.5" />
+              <line x1="37" y1="54" x2="28" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round" />
+              <line x1="37" y1="54" x2="46" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round" />
+              <line x1="37" y1="54" x2="37" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+            <div class="footer-brand-text">StarFilm</div>
+          </div>
+          <div class="footer-tagline">AI-Powered Shorts Generator</div>
+        </div>
+        <div class="footer-links-container">
+          <div class="footer-links-col">
+            <a href="/about">About Us</a>
+            <a href="/privacy-policy">Privacy Policy</a>
+            <a href="/terms-conditions">Terms & Conditions</a>
+          </div>
+          <div class="footer-links-col">
+            <a href="/faq">FAQ</a>
+            <a href="/contact-us">Contact Us</a>
+            <a href="/generate">Generate Shorts</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <div class="copyright">© 2026 StarFilm · All Rights Reserved</div>
+        <div class="social-mini">
+          <a href="https://www.linkedin.com/in/syed-hamail-mohi-uddin-qazi-025749304/" aria-label="LinkedIn" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z" />
+              <rect x="2" y="9" width="4" height="12" />
+              <circle cx="4" cy="4" r="2" />
+            </svg>
+          </a>
+          <a href="https://www.facebook.com/syed.hamail.1/" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+            </svg>
+          </a>
+          <a href="https://www.instagram.com/syedhamail1234/" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="2" width="20" height="20" rx="4" />
+              <circle cx="12" cy="12" r="4" />
+              <line x1="18" y1="6" x2="18.01" y2="6" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- subtle scroll reveal animations -->
+  <script>
+    // simple intersection animation for cards on scroll
+    const animatedElements = document.querySelectorAll('.info-card, .value-item, .stat-block');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.2, rootMargin: '0px 0px -30px 0px' });
+
+    animatedElements.forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(18px)';
+      el.style.transition = 'opacity 0.6s ease-out, transform 0.5s ease-out';
+      observer.observe(el);
+    });
+
+    // also immediate for hero but already visible
+    document.querySelectorAll('.hero .fade-up').forEach(el => {
+      el.style.opacity = '1';
+    });
+  </script>
+</body>
+
+</html>
