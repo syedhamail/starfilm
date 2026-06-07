@@ -886,7 +886,7 @@ async def run_pipeline(job_id, topic, niche, video_type, user_email, voice):
     job_dir = TMP_DIR / job_id
     job_dir.mkdir(exist_ok=True, parents=True)
     try:
-        update_job(job_id, "Writing emotional script (30-60 sec)...", 15)
+        update_job(job_id, "Writing script...", 15)
         script = await asyncio.to_thread(generate_script, topic, niche, voice)
         if is_canceled(job_id): return
 
