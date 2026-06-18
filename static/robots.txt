@@ -14,5 +14,6 @@ Disallow: /generate
 Disallow: /admin
 Disallow: /reset-password
 Disallow: /api/
+Disallow: /login
 
-Sitemap: https://starfilm.vercel.app/sitemap.xml
+Sitemap: https://starfilm.vercel.app/static/sitemap.xml
