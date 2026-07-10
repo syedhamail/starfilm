@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Emotional AI Storytelling | StarFilm Blog</title>
+  <meta name="description" content="Why emotional resonance is the secret ingredient for viral Shorts — and how AI masters it." />
+
+  <!-- FAVICON -->
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="/static/favicon-32x32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* same style as blog 1 – copy exactly */
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{--black:#000;--dark:#0d0c0a;--surface:#111008;--card:#161410;--gold:#c9a87c;--gold-lt:#dfc49c;--gold-dk:#a07d52;--gold-dim:rgba(201,168,124,0.12);--gold-bdr:rgba(201,168,124,0.22);--text:#f0ead8;--muted:#7a6e5a;--radius:4px}
+    body{font-family:'Montserrat',sans-serif;background:var(--black);color:var(--text);line-height:1.5}
+    body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");opacity:0.35}
+    .ambient{position:fixed;pointer-events:none;border-radius:50%;filter:blur(120px);opacity:0.08}
+    .ambient-1{width:600px;height:600px;background:var(--gold);top:-200px;right:-100px}
+    .ambient-2{width:450px;height:450px;background:var(--gold-dk);bottom:-150px;left:-80px}
+    .user-bar{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--gold-bdr);padding:10px 24px;display:flex;align-items:center;justify-content:space-between}
+    .user-bar .logo a{font-family:'Cormorant Garamond',serif;font-size:0.9rem;font-weight:700;letter-spacing:0.18em;color:var(--gold);text-transform:uppercase;text-decoration:none}
+    .dashboard-link{background:transparent;border:1px solid rgba(201,168,124,0.28);border-radius:4px;color:var(--gold);font-size:0.58rem;font-weight:600;letter-spacing:0.18em;padding:5px 12px;text-decoration:none}
+    .dashboard-link:hover{border-color:rgba(201,168,124,0.7)}
+    .container{max-width:900px;margin:0 auto;padding:100px 28px 60px;position:relative;z-index:10}
+    .blog-header{text-align:center;margin-bottom:40px}
+    .blog-header h1{font-family:'Cormorant Garamond',serif;font-size:2.8rem;color:var(--gold);margin-bottom:16px}
+    .blog-meta{font-size:0.7rem;letter-spacing:0.12em;color:var(--gold-dk);margin-bottom:20px}
+    .featured-img{width:100%;max-height:400px;object-fit:cover;border-radius:var(--radius);margin:20px 0 30px;border:1px solid var(--gold-bdr)}
+    .blog-content p{color:var(--muted);font-size:1rem;line-height:1.7;margin-bottom:24px}
+    .blog-content h2{font-family:'Cormorant Garamond',serif;font-size:1.8rem;color:var(--gold-lt);margin:32px 0 16px}
+    .back-link{display:inline-block;margin-top:40px;color:var(--gold);text-decoration:none;border-bottom:1px solid var(--gold);padding-bottom:4px}
+    .back-link:hover{color:var(--gold-lt);letter-spacing:1px}
+    footer{background:linear-gradient(180deg, var(--surface) 0%, #0a0907 100%);padding:40px 32px 28px;margin-top:60px;border-top:1px solid var(--gold-bdr);text-align:center}
+    .copyright{font-size:0.6rem;letter-spacing:0.18em;color:var(--muted)}
+    @media(max-width:680px){.blog-header h1{font-size:2rem}}
+  </style>
+</head>
+<body>
+  <div class="ambient ambient-1"></div><div class="ambient ambient-2"></div>
+  <div id="user-bar"
+    style="position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);border-bottom:1px solid rgba(201,168,124,0.12);padding:10px 24px;display:flex;align-items:center;justify-content:center;">
+    <div
+      style="font-family:'Cormorant Garamond',serif;font-size:0.9rem;font-weight:700;letter-spacing:0.18em;color:#c9a87c;text-transform:uppercase;">
+      <a href="/" style="color:#c9a87c;text-decoration:none;">StarFilm</a>
+    </div>
+  </div>
+  
+  <div class="container">
+    <div class="blog-header"><h1>Emotional AI Storytelling: The New Frontier</h1><div class="blog-meta">March 8, 2026 • 4 min read</div><img class="featured-img" src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=900&auto=format" alt="emotional storytelling"></div>
+    <div class="blog-content">
+      <p>Why do some Shorts make you cry within 15 seconds while others feel flat? The answer is emotional resonance. AI has learned to map story arcs — setup, conflict, resolution — and inject emotional beats that trigger viewer empathy.</p>
+      <h2>The Science of AI Emotion</h2>
+      <p>Modern LLMs (like Groq’s Llama) are trained on millions of stories. They understand pacing, cliffhangers, and the “hook + body + CTA” formula. StarFilm uses this to write scripts that feel genuinely moving.</p>
+      <h2>Real‑World Impact</h2>
+      <p>A Pakistani creator used StarFilm to produce a short about a struggling student. It got 2 million views on TikTok. Comments poured in: “This made me tear up.” That’s the power of AI‑crafted emotion combined with relatable topics.</p>
+      <p>Ready to move your audience? Start your emotional story today.</p>
+      <a href="/" class="back-link">← Back to Home</a>
+    </div>
+  </div>
+  <footer><div class="copyright">© 2026 StarFilm · All Rights Reserved</div></footer>
+</body>
+</html>

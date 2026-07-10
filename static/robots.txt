@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /privacy-policy
+Allow: /terms-conditions
+Allow: /contact-us
+Allow: /faq
+Allow: /ai-video-trends-2026
+Allow: /emotional-ai-storytelling
+Allow: /voiceover-tips-shorts
+Allow: /generate
+
+Disallow: /api/
+
+Sitemap: https://starfilm.vercel.app/static/sitemap.xml
