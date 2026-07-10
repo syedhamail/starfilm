@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign In — STARFILM</title>
+
+<!-- FAVICON -->
+<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="icon" href="/static/favicon-32x32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --black:    #000000;
+  --card:     #0e0d0b;
+  --gold:     #c9a87c;
+  --gold-lt:  #dfc49c;
+  --gold-dk:  #a07d52;
+  --gold-dim: rgba(201,168,124,0.10);
+  --gold-bdr: rgba(201,168,124,0.20);
+  --text:     #f0ead8;
+  --muted:    #7a6e5a;
+  --radius:   4px;
+}
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: var(--black);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+body::after {
+  content: ''; position: fixed;
+  width: 500px; height: 500px;
+  background: var(--gold); border-radius: 50%;
+  filter: blur(160px); opacity: 0.055;
+  top: -150px; right: -150px; pointer-events: none;
+}
+body::before {
+  content: ''; position: fixed;
+  width: 350px; height: 350px;
+  background: var(--gold-dk); border-radius: 50%;
+  filter: blur(130px); opacity: 0.05;
+  bottom: -100px; left: -100px; pointer-events: none;
+}
+
+.auth-card {
+  position: relative; z-index: 10;
+  width: 100%; max-width: 420px;
+  background: var(--card);
+  border: 1px solid var(--gold-bdr);
+  border-radius: var(--radius);
+  padding: 40px 36px;
+  transition: min-height .3s;
+}
+.auth-card::before, .auth-card::after {
+  content: ''; position: absolute;
+  width: 16px; height: 16px;
+  border-color: var(--gold-dk); border-style: solid;
+}
+.auth-card::before { top:-1px; left:-1px; border-width:1px 0 0 1px; }
+.auth-card::after  { bottom:-1px; right:-1px; border-width:0 1px 1px 0; }
+
+/* LOGO */
+.logo-wrap { text-align: center; margin-bottom: 28px; }
+.logo-icon { width: 36px; height: 36px; margin-bottom: 10px; opacity: .9; }
+.brand {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.6rem; font-weight: 700;
+  letter-spacing: .22em; color: var(--gold);
+  text-transform: uppercase; display: block;
+}
+.divider { width:50px; height:1px; background:linear-gradient(90deg,transparent,var(--gold-dk),transparent); margin:10px auto 0; }
+
+/* TABS */
+.tab-row { display:flex; border-bottom:1px solid var(--gold-bdr); margin-bottom:28px; }
+.tab {
+  flex:1; padding:10px; text-align:center;
+  font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; font-weight:600;
+  color:var(--muted); cursor:pointer;
+  border-bottom:1px solid transparent; margin-bottom:-1px;
+  transition:color .2s, border-color .2s;
+  background:none; border-top:none; border-left:none; border-right:none;
+}
+.tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+/* PANELS */
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* BACK BUTTON */
+.back-btn {
+  display:flex; align-items:center; gap:6px;
+  background:none; border:none; color:var(--muted);
+  font-family:'Montserrat',sans-serif; font-size:.62rem;
+  letter-spacing:.12em; text-transform:uppercase;
+  cursor:pointer; padding:0; margin-bottom:20px;
+  transition:color .2s;
+}
+.back-btn:hover { color:var(--gold-dk); }
+
+/* PANEL TITLE */
+.panel-title {
+  font-family:'Cormorant Garamond',serif;
+  font-size:1rem; font-weight:600; color:var(--gold-lt);
+  letter-spacing:.08em; margin-bottom:6px;
+}
+.panel-sub {
+  font-size:.65rem; color:var(--muted); font-weight:300;
+  letter-spacing:.04em; line-height:1.6; margin-bottom:22px;
+}
+
+/* FIELDS */
+.field { margin-bottom:18px; }
+label {
+  display:block; font-size:.6rem; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--gold-dk);
+  font-weight:600; margin-bottom:7px;
+}
+input {
+  width:100%; background:rgba(0,0,0,.5);
+  border:1px solid var(--gold-bdr); border-radius:var(--radius);
+  color:var(--text); font-family:'Montserrat',sans-serif;
+  font-size:.85rem; font-weight:300; padding:11px 14px;
+  outline:none; transition:border-color .25s, box-shadow .25s;
+  letter-spacing:.03em;
+}
+input::placeholder { color:var(--muted); }
+input:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,168,124,.07); }
+
+/* BUTTON */
+.btn {
+  width:100%; margin-top:6px; padding:13px;
+  background:transparent; border:1px solid var(--gold);
+  border-radius:var(--radius); color:var(--gold);
+  font-family:'Montserrat',sans-serif; font-size:.65rem;
+  font-weight:700; letter-spacing:.26em; text-transform:uppercase;
+  cursor:pointer; position:relative; overflow:hidden;
+  transition:color .3s;
+}
+.btn::before {
+  content:''; position:absolute; inset:0;
+  background:var(--gold); transform:translateX(-101%);
+  transition:transform .35s cubic-bezier(.4,0,.2,1);
+}
+.btn:hover { color:var(--black); }
+.btn:hover::before { transform:translateX(0); }
+.btn span { position:relative; z-index:1; }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn:disabled::before { display:none; }
+.btn:disabled { color:var(--gold); }
+
+/* FORGOT LINK */
+.forgot-link {
+  text-align:center; margin-top:14px;
+}
+.forgot-link button {
+  background:none; border:none; color:var(--muted);
+  font-family:'Montserrat',sans-serif; font-size:.6rem;
+  letter-spacing:.12em; text-transform:uppercase;
+  cursor:pointer; transition:color .2s;
+}
+.forgot-link button:hover { color:var(--gold-dk); }
+
+/* MESSAGES */
+.msg {
+  display:none; font-size:.68rem; letter-spacing:.05em;
+  padding:10px 14px; border-radius:var(--radius);
+  margin-bottom:18px; font-weight:400; line-height:1.5;
+}
+.msg.error   { display:block; background:rgba(201,124,124,.08); border:1px solid rgba(201,124,124,.25); color:#c97c7c; }
+.msg.success { display:block; background:var(--gold-dim); border:1px solid var(--gold-bdr); color:var(--gold-lt); }
+.msg.info    { display:block; background:rgba(124,158,201,.08); border:1px solid rgba(124,158,201,.2); color:#9cbddf; }
+
+/* TOAST */
+#toast-wrap {
+  position:fixed; top:24px; right:24px; z-index:9999;
+  display:flex; flex-direction:column; gap:10px; pointer-events:none;
+}
+.toast {
+  pointer-events:all; min-width:280px; max-width:360px;
+  background:#0d0c0a; border:1px solid var(--gold-bdr);
+  border-radius:var(--radius); overflow:hidden;
+  box-shadow:0 8px 40px rgba(0,0,0,.7);
+  transform:translateX(110%); opacity:0;
+  transition:transform .45s cubic-bezier(.16,1,.3,1), opacity .4s;
+}
+.toast.show { transform:translateX(0); opacity:1; }
+.toast.hide { transform:translateX(110%); opacity:0; }
+.t-bar { height:2px; }
+.t-bar.gold { background:linear-gradient(90deg,var(--gold-dk),var(--gold-lt)); }
+.t-bar.red  { background:linear-gradient(90deg,#8b3a3a,#c97c7c); }
+.t-bar.blue { background:linear-gradient(90deg,#3a5a8b,#7c9ec9); }
+.t-inner { display:flex; align-items:center; gap:10px; padding:13px 14px; }
+.t-ico { width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:11px; flex-shrink:0; }
+.t-ico.gold { background:var(--gold-dim); color:var(--gold-lt); border:1px solid var(--gold-bdr); }
+.t-ico.red  { background:rgba(201,124,124,.1); color:#c97c7c; border:1px solid rgba(201,124,124,.2); }
+.t-ico.blue { background:rgba(124,158,201,.1); color:#9cbddf; border:1px solid rgba(124,158,201,.2); }
+.t-txt { flex:1; }
+.t-ttl { font-family:'Cormorant Garamond',serif; font-size:.78rem; font-weight:600; letter-spacing:.06em; }
+.t-ttl.gold { color:var(--gold-lt); } .t-ttl.red { color:#c97c7c; } .t-ttl.blue { color:#9cbddf; }
+.t-sub { font-size:.64rem; color:var(--muted); margin-top:2px; font-weight:300; }
+.t-prog { height:2px; background:rgba(201,168,124,.07); }
+.t-prog-bar { height:100%; transition:width linear; }
+.t-prog-bar.gold { background:var(--gold-dk); }
+.t-prog-bar.red  { background:#8b3a3a; }
+.t-prog-bar.blue { background:#3a5a8b; }
+
+@media(max-width:480px){
+  .auth-card { padding:28px 20px; }
+  #toast-wrap { top:14px; right:14px; left:14px; }
+  .toast { min-width:0; max-width:100%; }
+}
+</style>
+</head>
+<body>
+
+<div id="toast-wrap"></div>
+
+<div class="auth-card">
+  <!-- Logo -->
+  <div class="logo-wrap">
+    <svg class="logo-icon" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="28" cy="22" r="11" stroke="#c9a87c" stroke-width="3"/>
+      <circle cx="28" cy="22" r="4"  stroke="#c9a87c" stroke-width="2.5"/>
+      <circle cx="52" cy="18" r="8"  stroke="#c9a87c" stroke-width="3"/>
+      <circle cx="52" cy="18" r="3"  stroke="#c9a87c" stroke-width="2"/>
+      <rect x="18" y="32" width="38" height="22" rx="3" stroke="#c9a87c" stroke-width="3"/>
+      <rect x="8"  y="36" width="10" height="6"  rx="2" stroke="#c9a87c" stroke-width="2.5"/>
+      <path d="M56 36 L66 32 L66 46 L56 42 Z" stroke="#c9a87c" stroke-width="2.5" stroke-linejoin="round"/>
+      <line x1="30" y1="36" x2="30" y2="50" stroke="#c9a87c" stroke-width="1.5"/>
+      <line x1="37" y1="54" x2="28" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="37" y1="54" x2="46" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="37" y1="54" x2="37" y2="70" stroke="#c9a87c" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <span class="brand">StarFilm</span>
+    <div class="divider"></div>
+  </div>
+
+  <!-- Main Tabs (Login / Signup) -->
+  <div class="tab-row" id="main-tabs">
+    <button class="tab active" onclick="switchTab('login')">Sign In</button>
+    <button class="tab" onclick="switchTab('signup')">Create Account</button>
+  </div>
+
+  <!-- ── LOGIN PANEL ── -->
+  <div class="panel active" id="panel-login">
+    <div class="msg" id="login-msg"></div>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="login-email" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter') doLogin()" />
+      <div style="text-align:right;margin-top:8px;">
+        <button onclick="showForgot()" style="background:none;border:none;color:var(--muted);font-family:'Montserrat',sans-serif;font-size:0.62rem;letter-spacing:0.1em;cursor:pointer;text-decoration:underline;text-underline-offset:3px;" onmouseover="this.style.color='#dfc49c'" onmouseout="this.style.color='var(--muted)'">Forgot password?</button>
+      </div>
+    </div>
+    <button class="btn" id="login-btn" onclick="doLogin()">
+      <span>Sign In</span>
+    </button>
+    <div class="forgot-link">
+      <button onclick="switchTab('forgot')">Forgot password?</button>
+    </div>
+  </div>
+
+  <!-- ── FORGOT PASSWORD PANEL ── -->
+  <div class="panel" id="panel-forgot">
+    <div class="msg" id="forgot-msg"></div>
+    <p style="font-size:0.7rem;color:var(--muted);line-height:1.6;margin-bottom:20px;letter-spacing:0.03em;font-weight:300;">Enter your email and we will send you a password reset link.</p>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="forgot-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter') doForgot()" />
+    </div>
+    <button class="btn" id="forgot-btn" onclick="doForgot()">
+      <span>Send Reset Link</span>
+    </button>
+    <div style="text-align:center;margin-top:16px;">
+      <button onclick="showLogin()" style="background:none;border:none;color:var(--muted);font-family:'Montserrat',sans-serif;font-size:0.62rem;letter-spacing:0.1em;cursor:pointer;text-decoration:underline;text-underline-offset:3px;" onmouseover="this.style.color='#dfc49c'" onmouseout="this.style.color='var(--muted)'">← Back to Sign In</button>
+    </div>
+  </div>
+
+  <!-- ── SIGNUP PANEL ── -->
+  <div class="panel" id="panel-signup">
+    <div class="msg" id="signup-msg"></div>
+    <div class="field">
+      <label>Full Name</label>
+      <input type="text" id="signup-name" placeholder="Your name" />
+    </div>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="signup-email" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label>Password <span style="color:var(--muted);font-size:.55rem;letter-spacing:.1em">— min 6 characters</span></label>
+      <input type="password" id="signup-pass" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter') doSignup()" />
+    </div>
+    <button class="btn" id="signup-btn" onclick="doSignup()">
+      <span>Create Account</span>
+    </button>
+  </div>
+
+  <!-- ── FORGOT PASSWORD PANEL ── -->
+  <div class="panel" id="panel-forgot">
+    <button class="back-btn" onclick="switchTab('login')">← Back to Sign In</button>
+    <div class="panel-title">Forgot Password?</div>
+    <div class="panel-sub">Enter your email address and we'll send you a link to reset your password.</div>
+    <div class="msg" id="forgot-msg"></div>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="forgot-email" placeholder="you@example.com"
+             onkeydown="if(event.key==='Enter') doForgot()" />
+    </div>
+    <button class="btn" id="forgot-btn" onclick="doForgot()">
+      <span>Send Reset Link</span>
+    </button>
+  </div>
+
+  <!-- ── RESET PASSWORD PANEL ── -->
+  <div class="panel" id="panel-reset">
+    <div class="panel-title">Set New Password</div>
+    <div class="panel-sub">Choose a strong password for your account.</div>
+    <div class="msg" id="reset-msg"></div>
+    <div class="field">
+      <label>New Password <span style="color:var(--muted);font-size:.55rem;letter-spacing:.1em">— min 6 characters</span></label>
+      <input type="password" id="reset-pass" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter') doReset()" />
+    </div>
+    <div class="field">
+      <label>Confirm Password</label>
+      <input type="password" id="reset-confirm" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter') doReset()" />
+    </div>
+    <button class="btn" id="reset-btn" onclick="doReset()">
+      <span>Update Password</span>
+    </button>
+  </div>
+
+</div><!-- /auth-card -->
+
+<script>
+// ── URL PARAMS — handle ?msg= from backend redirects ─────────
+const params = new URLSearchParams(window.location.search);
+const urlMsg  = params.get('msg');
+const resetToken = params.get('token');
+
+// ── PANEL SWITCHING ───────────────────────────────────────────
+function switchTab(tab) {
+  const tabRow = document.getElementById('main-tabs');
+  tabRow.style.display = (tab === 'forgot' || tab === 'reset') ? 'none' : 'flex';
+
+  if (tab !== 'forgot' && tab !== 'reset') {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const idx = tab === 'login' ? 0 : 1;
+    document.querySelectorAll('.tab')[idx].classList.add('active');
+  }
+
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  clearMsgs();
+}
+
+// ── MESSAGES ──────────────────────────────────────────────────
+function clearMsgs() {
+  document.querySelectorAll('.msg').forEach(m => { m.className = 'msg'; m.textContent = ''; });
+}
+function showMsg(id, type, text) {
+  const el = document.getElementById(id);
+  el.className = `msg ${type}`;
+  el.textContent = text;
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(color, title, sub, duration = 4500) {
+  const icons = { gold: '✦', red: '◇', blue: '◈' };
+  const wrap  = document.getElementById('toast-wrap');
+  const t     = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `
+    <div class="t-bar ${color}"></div>
+    <div class="t-inner">
+      <div class="t-ico ${color}">${icons[color]}</div>
+      <div class="t-txt">
+        <div class="t-ttl ${color}">${title}</div>
+        <div class="t-sub">${sub}</div>
+      </div>
+    </div>
+    <div class="t-prog"><div class="t-prog-bar ${color}" style="width:100%"></div></div>
+  `;
+  wrap.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+  const bar = t.querySelector('.t-prog-bar');
+  bar.style.transition = `width ${duration}ms linear`;
+  requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = '0%'; }));
+  setTimeout(() => {
+    t.classList.add('hide');
+    setTimeout(() => t.remove(), 500);
+  }, duration);
+}
+
+// ── HANDLE URL MSG PARAMS ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (urlMsg === 'verified') {
+    showMsg('login-msg', 'success', 'Email verified successfully! You can now sign in.');
+    showToast('gold', 'Email Verified', 'Your account is now active. Please sign in.');
+  } else if (urlMsg === 'invalid_token') {
+    showMsg('login-msg', 'error', 'Verification link is invalid or has expired.');
+    showToast('red', 'Invalid Link', 'This verification link is no longer valid.');
+  } else if (urlMsg === 'reset_expired') {
+    showMsg('login-msg', 'error', 'Reset link has expired. Please request a new one.');
+    showToast('red', 'Link Expired', 'Please request a new password reset link.');
+  }
+
+  // If reset token in URL → show reset panel
+  if (resetToken) {
+    switchTab('reset');
+    document.getElementById('panel-reset').dataset.token = resetToken;
+    // Clean URL
+    window.history.replaceState({}, '', '/login');
+  }
+});
+
+// ── LOGIN ─────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const btn   = document.getElementById('login-btn');
+  if (!email || !pass) { showMsg('login-msg','error','Please fill in all fields.'); return; }
+
+  setLoading(btn, true, 'Signing in...');
+  clearMsgs();
+
+  try {
+    const data = await post('/api/login', { email, password: pass });
+    if (data.success) {
+      showToast('gold', 'Welcome Back', `Signed in as ${data.name}`);
+      setTimeout(() => { window.location.href = '/'; }, 1100);
+    } else {
+      showMsg('login-msg', 'error', data.error || 'Invalid credentials.');
+      showToast('red', 'Sign In Failed', data.error || 'Please check your credentials.');
+      setLoading(btn, false, 'Sign In');
+    }
+  } catch(e) {
+    showMsg('login-msg','error','Connection error. Please try again.');
+    setLoading(btn, false, 'Sign In');
+  }
+}
+
+// ── SIGNUP ────────────────────────────────────────────────────
+async function doSignup() {
+  const name  = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-pass').value;
+  const btn   = document.getElementById('signup-btn');
+
+  if (!name || !email || !pass) { showMsg('signup-msg','error','Please fill in all fields.'); return; }
+  if (pass.length < 6)          { showMsg('signup-msg','error','Password must be at least 6 characters.'); return; }
+
+  setLoading(btn, true, 'Creating account...');
+  clearMsgs();
+
+  try {
+    const data = await post('/api/signup', { name, email, password: pass });
+    if (data.success) {
+      showMsg('signup-msg', 'success', 'Account created! You can now sign in.');
+      showToast('gold', 'Account Created', 'Your account is now active. Please sign in.');
+      setLoading(btn, false, 'Create Account');
+      // Clear fields
+      document.getElementById('signup-name').value  = '';
+      document.getElementById('signup-email').value = '';
+      document.getElementById('signup-pass').value  = '';
+    } else {
+      showMsg('signup-msg','error', data.error || 'Could not create account.');
+      showToast('red', 'Sign Up Failed', data.error || 'Please try again.');
+      setLoading(btn, false, 'Create Account');
+    }
+  } catch(e) {
+    showMsg('signup-msg','error','Connection error. Please try again.');
+    setLoading(btn, false, 'Create Account');
+  }
+}
+
+// ── FORGOT PASSWORD ───────────────────────────────────────────
+async function doForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn   = document.getElementById('forgot-btn');
+  if (!email) { showMsg('forgot-msg','error','Please enter your email address.'); return; }
+
+  setLoading(btn, true, 'Sending link...');
+  clearMsgs();
+
+  try {
+    await post('/api/forgot-password', { email });
+    // Always show success (don't reveal if email exists)
+    showMsg('forgot-msg', 'success', 'If this email is registered, you will receive a password reset link shortly.');
+    showToast('blue', 'Reset Link Sent', 'Check your inbox for the reset link.');
+    setLoading(btn, false, 'Send Reset Link');
+    document.getElementById('forgot-email').value = '';
+  } catch(e) {
+    showMsg('forgot-msg','error','Connection error. Please try again.');
+    setLoading(btn, false, 'Send Reset Link');
+  }
+}
+
+// ── RESET PASSWORD ────────────────────────────────────────────
+async function doReset() {
+  const pass    = document.getElementById('reset-pass').value;
+  const confirm = document.getElementById('reset-confirm').value;
+  const token   = document.getElementById('panel-reset').dataset.token;
+  const btn     = document.getElementById('reset-btn');
+
+  if (!pass || !confirm)  { showMsg('reset-msg','error','Please fill in both fields.'); return; }
+  if (pass !== confirm)   { showMsg('reset-msg','error','Passwords do not match.'); return; }
+  if (pass.length < 6)    { showMsg('reset-msg','error','Password must be at least 6 characters.'); return; }
+  if (!token)             { showMsg('reset-msg','error','Reset token missing. Please request a new link.'); return; }
+
+  setLoading(btn, true, 'Updating password...');
+  clearMsgs();
+
+  try {
+    const data = await post('/api/reset-password', { token, password: pass });
+    if (data.success) {
+      showToast('gold', 'Password Updated', 'You can now sign in with your new password.');
+      setTimeout(() => switchTab('login'), 1200);
+    } else {
+      showMsg('reset-msg','error', data.error || 'Could not reset password. Link may have expired.');
+      showToast('red', 'Reset Failed', data.error || 'Please request a new reset link.');
+      setLoading(btn, false, 'Update Password');
+    }
+  } catch(e) {
+    showMsg('reset-msg','error','Connection error. Please try again.');
+    setLoading(btn, false, 'Update Password');
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+async function post(url, body) {
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return resp.json();
+}
+
+function setLoading(btn, loading, label) {
+  btn.disabled = loading;
+  btn.querySelector('span').textContent = label;
+}
+
+
+function showForgot() {
+  switchTab('forgot');
+}
+
+function showLogin() {
+  switchTab('login');
+}
+</script>
+</body>
+</html>
